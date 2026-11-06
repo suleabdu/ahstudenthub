@@ -1,0 +1,64 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0f766e"><link rel="manifest" href="manifest.json"><title>AH Cashbook</title>
+<style>
+:root{--g:#0f766e;--bg:#f4f6f8;--c:#fff;--t:#1f2933;--m:#6b7785;--r:#c0392b;--b:#dde3ea}
+@media(prefers-color-scheme:dark){:root{--bg:#12171c;--c:#1b232b;--t:#e6ebf0;--m:#94a3b0;--b:#2c3742}}
+*{box-sizing:border-box}body{margin:0;font:15px system-ui,sans-serif;background:var(--bg);color:var(--t);padding-bottom:70px}
+header{background:var(--g);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:5}
+#st{font-size:12px}main{max-width:900px;margin:auto;padding:12px}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--c);border-top:1px solid var(--b)}
+nav button{flex:1;border:0;background:none;color:var(--m);padding:14px 2px;font-size:12px}nav button.on{color:var(--g);font-weight:700}
+.card{background:var(--c);border:1px solid var(--b);border-radius:10px;padding:12px;margin-bottom:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:6px}
+input,select,textarea,.b{width:100%;padding:10px;margin:4px 0;border:1px solid var(--b);border-radius:8px;background:var(--c);color:var(--t);font:inherit}
+.b{background:var(--g);color:#fff;border:0;font-weight:600}.b.d{background:var(--r)}
+table{width:100%;border-collapse:collapse}td,th{padding:6px 4px;text-align:left;border-bottom:1px solid var(--b)}.n{text-align:right}.low{color:var(--r);font-weight:600}.m{color:var(--m);font-size:12px}h3{margin:4px 0 8px}
+</style></head><body>
+<header><b id="co">AH Cashbook</b><span id="st"></span></header><main></main>
+<nav><button onclick="go(this)">Dashboard</button><button onclick="go(this)">Products</button><button onclick="go(this)">Services</button><button onclick="go(this)">Transactions</button><button onclick="go(this)">Settings</button></nav>
+<script>
+const $=s=>document.querySelector(s),L=(k,v)=>v===undefined?JSON.parse(localStorage.getItem(k)||'null'):localStorage.setItem(k,JSON.stringify(v));
+let cfg=L('cfg')||{},D=L('data')||{products:[],services:[],tx:[],settings:{},users:[]},Q=L('q')||[],tab='Dashboard',busy=0;
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const money=n=>'₦'+Number(n||0).toLocaleString(),pad=n=>String(n).padStart(2,'0'),ymd=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()),admin=()=>D.role=='admin';
+const setSt=m=>$('#st').textContent=m+(Q.length?' · '+Q.length+' pending':'');
+async function api(a,x){const r=await fetch(cfg.url,{method:'POST',body:JSON.stringify({a,user:cfg.user,pin:cfg.pin,...x})}),j=await r.json();if(j.error)throw Error(j.error);return j}
+async function sync(a='sync',x={}){if(busy)return;busy=1;try{const q=Q.slice(),j=await api(a,{...x,tx:q});Q=Q.filter(t=>!q.includes(t));L('q',Q);D=j;L('data',D);setSt('Synced')}catch(e){setSt(navigator.onLine?e.message:'Offline');throw e}finally{busy=0;if(!document.activeElement.matches('input,select,textarea'))render()}}
+const adm=(a,x)=>sync(a,x).catch(e=>alert(e.message));
+function view(){const P=D.products.map(p=>({...p}));Q.forEach(t=>{const p=P.find(x=>x.id==t.itemId);if(p)p.stock=Number(p.stock)+(t.type=='restock'?1:t.type=='sale'?-1:0)*t.qty});return{tx:D.tx.concat(Q),P}}
+function login(){cfg={url:$('#u').value.trim(),user:$('#n').value.trim(),pin:$('#p').value.trim()};L('cfg',cfg);D={products:[],services:[],tx:[],settings:{},users:[]};sync().catch(e=>alert(e.message))}
+function out(){if(Q.length&&!confirm('Unsynced entries will be lost. Sign out anyway?'))return;Q=[];L('q',Q);D={products:[],services:[],tx:[],settings:{},users:[]};L('data',D);cfg.pin='';L('cfg',cfg);render()}
+function go(b){tab=b.textContent;render()}
+function render(){const ok=D.role;$('nav').style.display=ok?'flex':'none';$('#co').textContent=D.settings.company||'AH Cashbook';
+$('main').innerHTML=!ok?`<div class=card><h3>AH Cashbook</h3><input id=u placeholder="Web app URL" value="${esc(cfg.url)}"><input id=n placeholder=Name value="${esc(cfg.user)}"><input id=p type=password placeholder=PIN><button class=b onclick=login()>Sign in</button></div>`:{Dashboard:dash,Products:prods,Services:svcs,Transactions:txs,Settings:sets}[tab]();
+document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.textContent==tab));if(ok&&tab=='Transactions')tf();if(ok)setSt($('#st').textContent.split(' · ')[0]||'')}
+function dash(){const{tx}=view(),now=new Date(),t=ymd(now),y=ymd(new Date(now-864e5)),ws=ymd(new Date(now-((now.getDay()+6)%7)*864e5));
+return[['Today',d=>d==t],['Yesterday',d=>d==y],['This week',d=>d>=ws&&d<=t],['This month',d=>d.slice(0,7)==t.slice(0,7)],['This year',d=>d.slice(0,4)==t.slice(0,4)]].map(([n,f])=>{let s=0,e=0,q=0;
+tx.filter(x=>f(String(x.date))).forEach(x=>{if(x.type=='sale'){s+=+x.amount;q+=+x.qty}if(x.type=='expense')e+=+x.amount});
+return`<div class=card><b>${n}</b><div class=grid><div>Sales<br><b>${money(s)}</b></div><div>Expenses<br><b>${money(e)}</b></div><div>Qty sold<br><b>${q}</b></div><div>Net<br><b>${money(s-e)}</b></div></div></div>`}).join('')}
+const mk=(a,i)=>({id:'P'+Date.now()+i,name:a[0],category:a[1],unit:a[2],cost:+a[3]||0,price:+a[4]||0,stock:+a[5]||0,reorder:+a[6]||0});
+function prods(){const{P}=view();let h=`<div class=card><h3>Inventory (${P.length})</h3><div style="overflow:auto"><table><tr><th>Product<th class=n>Stock<th class=n>Price${admin()?'<th class=n>Cost':''}`+P.map(p=>`<tr><td>${esc(p.name)}<div class=m>${esc(p.category)} · ${esc(p.unit)}<td class="n ${+p.stock<=+p.reorder?'low':''}">${p.stock}<td class=n>${money(p.price)}${admin()?`<td class=n>${money(p.cost)}`:''}`).join('')+`</table></div></div>`;
+if(admin())h+=`<div class=card><h3>Add product</h3>`+['name','category','unit'].map(k=>`<input id=p_${k} placeholder=${k}>`).join('')+['cost','price','stock','reorder'].map(k=>`<input id=p_${k} type=number placeholder=${k}>`).join('')+`<button class=b onclick=addP()>Add</button></div><div class=card><h3>Bulk add</h3><div class=m>One per line: name,category,unit,cost,price,stock,reorder</div><textarea id=bulk rows=6></textarea><button class=b onclick=bulkP()>Import</button></div>`;return h}
+function addP(){const a=['name','category','unit','cost','price','stock','reorder'].map(k=>$('#p_'+k).value);if(!a[0])return alert('Name needed');adm('saveProducts',{items:[mk(a,0)]})}
+function bulkP(){const it=$('#bulk').value.split('\n').filter(l=>l.trim()).map((l,i)=>mk(l.split(',').map(s=>s.trim()),i));if(it.length)adm('saveProducts',{items:it})}
+function svcs(){let h=`<div class=card><h3>Services</h3><table>`+D.services.map(s=>`<tr><td>${esc(s.name)}<td class=n>${money(s.price)}`).join('')+`</table></div>`;
+if(admin())h+=`<div class=card><h3>Add service</h3><input id=s_n placeholder="Service (e.g. A0 print)"><input id=s_p type=number placeholder=Price><button class=b onclick="$('#s_n').value&&adm('saveService',{items:[{id:'S'+Date.now(),name:$('#s_n').value,price:+$('#s_p').value||0}]})">Add</button></div>`;return h}
+function txs(){const r=view().tx.slice().sort((a,b)=>(b.date+b.id).localeCompare(a.date+a.id)).slice(0,40);
+return`<div class=card><h3>New entry</h3><select id=ty onchange=tf()><option value=sale>Sale<option value=expense>Expense<option value=restock>Restocking</select><div id=tfm></div></div><div class=card><h3>Recent</h3><div style="overflow:auto"><table>`+r.map(t=>`<tr><td>${t.date}<div class=m>${t.type}${Q.includes(t)?' ⏳':''}<td>${esc(t.item)}<div class=m>${t.qty} × ${money(t.price)}<td class=n>${money(t.amount)}<td>${t.type=='sale'?`<a href=# onclick="rcpt(view().tx.find(x=>x.id=='${t.id}'));return false">🧾</a>`:''}`).join('')+`</table></div></div>`}
+function tf(){const ty=$('#ty').value,{P}=view();let h;
+if(ty=='expense')h=`<input id=ds placeholder="Description (Nepa, transport, salary...)"><input id=am type=number placeholder=Amount>`;
+else h=`<select id=it onchange=pf()>`+P.map(p=>`<option value="${p.id}" data-n="${esc(p.name)}" data-p="${p.price}">${esc(p.name)} (${p.stock} in stock)`).join('')+(ty=='sale'?D.services.map(s=>`<option value="${s.id}" data-n="${esc(s.name)}" data-p="${s.price}">${esc(s.name)} (service)`).join(''):'')+`</select><input id=q type=number value=1 min=0 step=any placeholder=Qty><input id=pr type=number placeholder="${ty=='sale'?'Unit price':'Unit cost'}">`;
+$('#tfm').innerHTML=`<input type=date id=dt value="${ymd(new Date())}">${h}<input id=nt placeholder="Note (optional)"><button class=b onclick=add()>Save ${ty}</button>`;if($('#it'))pf()}
+function pf(){const o=$('#it').selectedOptions[0];if(o)$('#pr').value=$('#ty').value=='sale'?o.dataset.p:(D.products.find(p=>p.id==o.value)||{}).cost||''}
+function add(){const ty=$('#ty').value,t={id:'T'+Date.now()+Math.random().toString(36).slice(2,6),date:$('#dt').value||ymd(new Date()),type:ty,note:$('#nt').value,user:cfg.user};
+if(ty=='expense'){t.item=$('#ds').value;t.qty=1;t.price=+$('#am').value}else{const o=$('#it').selectedOptions[0];if(!o)return alert('Add products first');t.itemId=o.value;t.item=o.dataset.n;t.qty=+$('#q').value;t.price=+$('#pr').value}
+if(!t.item||!t.price||!t.qty)return alert('Fill all fields');t.amount=t.qty*t.price;Q.push(t);L('q',Q);render();if(ty=='sale'&&confirm('Print receipt?'))rcpt(t);sync().catch(()=>{})}
+function rcpt(t){const s=D.settings,w=open('','_blank','width=380,height=600');w.document.write(`<body style="font:13px monospace;width:300px">${s.logo?`<img src="${esc(s.logo)}" style="max-width:100%">`:''}<h3 style="text-align:center;margin:4px">${esc(s.company)}</h3><div style="text-align:center">${esc(s.address)}<br>${esc(s.shop)}</div><hr>${t.date} · ${esc(t.user)}<br>${esc(t.item)}<br>${t.qty} x ${money(t.price)}<h3>Total ${money(t.amount)}</h3><hr><center>${esc(s.footer)}</center><script>print()<\/script>`);w.document.close()}
+function sets(){if(!admin())return`<div class=card><button class="b d" onclick=out()>Sign out</button></div>`;const s=D.settings;
+return`<div class=card><h3>Business & receipt</h3>`+['company','address','shop','logo','footer'].map(k=>`<label class=m>${k=='logo'?'logo (image URL)':k}</label><input id=s_${k} value="${esc(s[k])}">`).join('')+`<button class=b onclick=saveS()>Save</button></div><div class=card><h3>Users</h3><table>`+D.users.map((u,i)=>`<tr><td>${esc(u.name)}<td>${u.role}<td><button onclick=delU(${i})>✕</button>`).join('')+`</table><input id=u_n placeholder=Name><input id=u_p placeholder=PIN><select id=u_r><option>staff<option>admin</select><button class=b onclick=addU()>Add user</button></div><div class=card><button class=b onclick=out()>Sign out</button><button class="b d" onclick=reset()>Factory reset</button></div>`}
+function saveS(){const o={};['company','address','shop','logo','footer'].forEach(k=>o[k]=$('#s_'+k).value);adm('saveSettings',{items:o})}
+function addU(){const n=$('#u_n').value.trim(),p=$('#u_p').value.trim();if(!n||!p)return alert('Name and PIN needed');adm('saveUsers',{items:D.users.concat([{name:n,pin:p,role:$('#u_r').value}])})}
+function delU(i){if(confirm('Remove user?'))adm('saveUsers',{items:D.users.filter((_,j)=>j!=i)})}
+function reset(){if(prompt('This erases all products, services and transactions. Type RESET to confirm')=='RESET'){Q=[];L('q',Q);adm('reset')}}
+render();if(cfg.url&&cfg.pin)sync().catch(()=>{});addEventListener('online',()=>sync().catch(()=>{}));setInterval(()=>{if(cfg.pin)sync().catch(()=>{})},90000);
+if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');
+</script></body></html>
