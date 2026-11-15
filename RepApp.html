@@ -28,12 +28,13 @@ main{max-width:980px;margin:0 auto;padding:1rem}
 .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:1rem;margin-bottom:1rem}
 .grid{display:grid;gap:.8rem;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
 .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:end}.row>*{flex:1 1 150px}.row>.fit{flex:0 0 auto}
-.big{font:700 1.7rem inherit;font-variant-numeric:tabular-nums}
+.big{font:700 1.45rem/1.15 inherit;font-variant-numeric:tabular-nums}
 .muted,.hint{color:var(--ink2);font-size:.9rem}.neg{color:var(--red)}.pos{color:var(--green)}
   table{border-collapse:collapse;width:100%}th,td{padding:.45rem .5rem;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}th{font-size:.82rem;color:var(--ink2)}.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .tag{display:inline-block;padding:.05rem .5rem;border-radius:99px;font-size:.78rem;background:var(--amberbg);color:var(--amber)}.tag.g{background:var(--greenbg);color:var(--green)}.tag.r{background:var(--redbg);color:var(--red)}
 .banner{padding:.7rem 1rem;border-radius:8px;margin-bottom:1rem;background:var(--amberbg);color:#5a3b00}.banner.r{background:var(--redbg);color:#7a1610}
+.header-actions{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap}.notice-button{position:relative}.notice-count{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 4px;margin-left:5px;border-radius:99px;background:var(--red);color:#fff;font-size:.72rem;line-height:1;font-variant-numeric:tabular-nums}.walk-steps{margin:.8rem 0;padding-left:1.25rem}.walk-steps li{margin:.45rem 0}.recipient-list{display:grid;gap:.45rem;margin:.7rem 0}.recipient{display:flex;gap:.65rem;align-items:flex-start;padding:.65rem;border:1px solid var(--line);border-radius:8px;background:#fff}.recipient input{width:auto;min-height:0;margin-top:.2rem}.recipient small{display:block;color:var(--ink2)}
   .hit{display:flex;justify-content:space-between;gap:1rem;width:100%;text-align:left;background:#fff;color:var(--ink);border:1px solid var(--line);margin-top:.3rem}.hit:disabled{opacity:.65;cursor:not-allowed}
   table.sale-lines{min-width:760px}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:.7rem;padding-top:.7rem;border-top:1px solid var(--line)}.stats b{display:block;font:700 1.1rem inherit;font-variant-numeric:tabular-nums}.stats span{font-size:.82rem;color:var(--ink2)}.stats .spent b{color:var(--red)}
@@ -43,7 +44,7 @@ main{max-width:980px;margin:0 auto;padding:1rem}
 #toast div{background:var(--ink);color:#fff;padding:.7rem 1.1rem;border-radius:8px}#toast .err{background:var(--red)}
 .overlay{position:fixed;inset:0;background:#0007;display:flex;justify-content:center;align-items:flex-start;padding:4vh 1rem;overflow:auto;z-index:40}.modal{background:#fff;border-radius:12px;padding:1.2rem;width:100%;max-width:460px}
 #receipt{display:none}
-  @media(max-width:600px){body{font-size:15px}header{padding:.55rem .7rem;gap:.45rem}header .co{flex-basis:100%}main{padding:.7rem}.card{padding:.8rem}.grid{grid-template-columns:1fr}.row{display:grid;grid-template-columns:minmax(0,1fr);gap:.65rem;align-items:stretch}.row>*{min-width:0}.row>.fit{width:100%}.row>.fit button{width:100%}.hit{gap:.5rem;padding:.55rem .65rem;align-items:center}.scroll>table{min-width:520px}.scroll>table.sale-lines{min-width:760px}.modal{padding:1rem}.stats{grid-template-columns:1fr 1fr}.total{font-size:1.3rem}}
+  @media(max-width:600px){body{font-size:15px}header{padding:.55rem .7rem;gap:.45rem}header .co{flex-basis:100%}.header-actions{width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.header-actions button{width:100%;padding:.45rem .35rem;font-size:.82rem}main{padding:.7rem}.card{padding:.8rem}.grid{grid-template-columns:1fr}.row{display:grid;grid-template-columns:minmax(0,1fr);gap:.65rem;align-items:stretch}.row>*{min-width:0}.row>.fit{width:100%}.row>.fit button{width:100%}.hit{gap:.5rem;padding:.55rem .65rem;align-items:center}.scroll>table{min-width:520px}.scroll>table.sale-lines{min-width:760px}.modal{padding:1rem}.stats{grid-template-columns:1fr 1fr}.big{font-size:1.3rem}.total{font-size:1.3rem}}
   @media print{body>*{display:none!important}#receipt{display:block!important;width:78mm;margin:0;font:12px/1.35 monospace;color:#000}#receipt table td,#receipt table th{border:0;padding:1px 0}}
 </style>
 </head>
@@ -62,7 +63,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 // What belongs to the PC (server link, sign-in, PIN lock) is stored once. Everything a person produces (waiting entries, history,
 // price list, counters, half-filled forms) is stored under that person's own name, so nobody ever sees another person's work.
 let WHO = '';
-const SCOPED = ['queue', 'failed', 'syncIssue', 'hist', 'snap', 'lastSync', 'docseq', 'newseq', 'epoch', 'drafts'];
+const SCOPED = ['queue', 'failed', 'syncIssue', 'hist', 'snap', 'lastSync', 'docseq', 'newseq', 'epoch', 'drafts', 'tourDone', 'noticeSeen', 'noticePrompted'];
 const skey = k => 'cb_' + (SCOPED.indexOf(k) >= 0 ? 'u_' + WHO + '_' : '') + k;
 const LSget = (k, d) => { try { const v = localStorage.getItem(skey(k)); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
 let storageWarningAt = 0;
@@ -212,20 +213,88 @@ function retryFailed(ids) {
   if (navigator.onLine) sync(false);
 }
 
+/* ---------- live refresh, first-use help and lightweight notifications ---------- */
+let WALKTHROUGH_OPEN = false;
+function notificationFeed() {
+  if (!S.auth) return [];
+  const out = [], today = totalsFor('today'), low = (S.snap && S.snap.products || []).filter(p => p.type !== 'SERVICE' && Number.isFinite(+p.reorder) && avail(p.sku) <= +p.reorder).length;
+  if (!today.invoices) out.push({id: 'no-sales-' + todayStr(), tone: 'info', title: 'No sales recorded today', text: 'Start a new sale when the first customer is served.', route: 'sale'});
+  if (pending()) out.push({id: 'pending-' + todayStr(), tone: 'warn', title: pending() + ' action' + (pending() === 1 ? ' is' : 's are') + ' waiting to sync', text: navigator.onLine ? 'Cashbook will retry quietly; open Sync centre to check it.' : 'Reconnect to the internet and open Sync centre when ready.', route: 'sync'});
+  if (failed()) out.push({id: 'failed-' + todayStr(), tone: 'alert', title: failed() + ' action' + (failed() === 1 ? ' needs' : 's need') + ' attention', text: 'The server rejected it. Review the reason before retrying.', route: 'sync'});
+  if (low) out.push({id: 'low-stock-' + todayStr(), tone: 'warn', title: low + ' item' + (low === 1 ? ' is' : 's are') + ' low on stock', text: 'Check Stock & prices before making another sale.', route: 'stock'});
+  return out;
+}
+function noticeSeen() { const v = LSget('noticeSeen', {}); return v && typeof v === 'object' ? v : {}; }
+function unreadNotifications() { const seen = noticeSeen(); return notificationFeed().filter(n => !seen[n.id]); }
+function markNotificationsSeen() { const seen = noticeSeen(); notificationFeed().forEach(n => { seen[n.id] = new Date().toISOString(); }); LSset('noticeSeen', seen); }
+function renderNotifications() {
+  const b = $('#notifications'); if (!b) return;
+  const n = unreadNotifications().length;
+  b.innerHTML = `Notifications${n ? `<span class="notice-count">${n > 99 ? '99+' : n}</span>` : ''}`;
+  b.title = n ? `${n} new notice${n === 1 ? '' : 's'}` : 'Notifications';
+}
+function notifyOnce() {
+  const fresh = unreadNotifications(); if (!fresh.length) return;
+  const prompted = LSget('noticePrompted', {}), key = fresh[0].id;
+  if (prompted[key]) return;
+  prompted[key] = new Date().toISOString(); LSset('noticePrompted', prompted);
+  toast(fresh[0].title + ' — ' + fresh[0].text, fresh[0].tone === 'alert');
+}
+async function forceRefresh() {
+  if (!S.auth || S.syncing) { if (S.syncing) toast('A sync is already in progress.'); return; }
+  if (navigator.onLine === false) { toast('Force Refresh needs an internet connection. Your saved actions remain safe on this device.', true); return; }
+  const b = $('#force-refresh'); if (b) { b.disabled = true; b.textContent = 'Refreshing…'; }
+  try {
+    if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(() => {});
+    // Ask the server to invalidate its short-lived read cache before syncing.
+    // This makes a manager's direct spreadsheet update visible immediately.
+    await call('refresh', {}, 15000);
+    S.lastSync = null; await sync(false);
+    if (S.syncIssue) throw {message: S.syncIssue.message || 'Could not reach Cashbook.'};
+    toast('Refreshed from the latest Cashbook data.');
+  } catch (e) { toast(e.message || 'Could not refresh yet.', true); }
+  finally { const button = $('#force-refresh'); if (button) { button.disabled = false; button.textContent = 'Force Refresh'; } }
+}
+function walkthroughSteps() {
+  const text = {home: 'See today’s activity, then use the quick buttons for the next task.', sale: 'Choose products, confirm payment and save. A walk-in sale must be paid in full.', pay: 'Record money received from a named customer.', exp: 'Record only real business spending with a short note.', stockin: 'Receive goods, cost them and record what was paid.', newp: 'Add a product or service, then ask the owner to confirm its cost.', sync: 'Check Pending sync, Saved and Needs attention before ending the day.', more: 'Open stock, customers, daily WhatsApp summary, notifications, recent entries and settings without crowding the daily bar.'};
+  return tabs().map(t => ({name: t[1], text: text[t[0]] || 'Use this area for its named task.'}));
+}
+function showWalkthrough(force) {
+  if (!S.auth || WALKTHROUGH_OPEN || (!force && LSget('tourDone', false))) return;
+  WALKTHROUGH_OPEN = true;
+  const steps = walkthroughSteps();
+  const o = document.createElement('div'); o.className = 'overlay';
+  o.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-label="Cashbook quick guide"><h2>Welcome to Cashbook</h2><p class="muted">This quick guide follows the tabs you can use. You can reopen it anytime from the header.</p><ol class="walk-steps">${steps.map(s => `<li><b>${esc(s.name)}</b><br><span class="hint">${esc(s.text)}</span></li>`).join('')}</ol><div class="row"><div class="fit"><button class="ghost" id="walk-skip">Close</button></div><div class="fit"><button id="walk-done">Start using Cashbook</button></div></div></div>`;
+  document.body.appendChild(o);
+  const close = () => { LSset('tourDone', true); WALKTHROUGH_OPEN = false; o.remove(); };
+  const done = $('#walk-done', o), skip = $('#walk-skip', o); if (done) done.onclick = close; if (skip) skip.onclick = close;
+  o.addEventListener('mousedown', e => { if (e.target === o) close(); });
+}
+function notificationScreen(m) {
+  const notices = notificationFeed(); markNotificationsSeen();
+  m.innerHTML = `<div class="row"><div><h2>Notifications</h2><p class="muted">Short, practical reminders based on today’s activity and this device’s sync state.</p></div><div class="fit"><button class="ghost" id="note-refresh">Force Refresh</button></div></div><div class="card">${notices.length ? notices.map(n => `<div class="banner ${n.tone === 'alert' ? 'r' : ''}"><b>${esc(n.title)}</b><br><span class="hint">${esc(n.text)}</span><p style="margin:.55rem 0 0"><button class="ghost sm" data-note-route="${esc(n.route)}">Open ${n.route === 'sync' ? 'Sync centre' : 'related tab'}</button></p></div>`).join('') : '<p class="pos"><b>You are up to date.</b> There are no actions waiting for you right now.</p>'}</div>`;
+  renderNotifications();
+  const refresh = m.querySelector('#note-refresh'); if (refresh) refresh.onclick = () => forceRefresh();
+  m.querySelectorAll('[data-note-route]').forEach(b => b.onclick = () => { S.screen = b.dataset.noteRoute; renderNav(); drawBody(); });
+}
+
 /* ---------- screens ---------- */
-const tabs = () => [['home', 'Home'], ['sale', 'New sale'], ['pay', 'Customer payment'], ['exp', 'Expense']].concat(can('STOCK_IN') ? [['stockin', 'Receive stock']] : [], can('ADD_PRODUCT') ? [['newp', 'Add item / service']] : [], [['stock', 'Stock & prices'], ['cust', 'Customers'], ['sync', 'Sync centre'], ['hist', 'My entries'], ['set', 'Settings']]);
+const SECONDARY_SCREENS = new Set(['more', 'stock', 'cust', 'summary', 'notice', 'hist', 'set']);
+const tabs = () => [['home', 'Home'], ['sale', 'New sale'], ['pay', 'Customer payment'], ['exp', 'Expense']].concat(can('STOCK_IN') ? [['stockin', 'Receive stock']] : [], can('ADD_PRODUCT') ? [['newp', 'Add item / service']] : [], [['sync', 'Sync centre'], ['more', 'More']]);
 function render() {
   const app = $('#app');
   if (!S.auth) return loginScreen(app);
   if (S.lock && !S.unlocked) return unlockScreen(app);
-  app.innerHTML = `<header><div class="co">${esc(S.snap ? S.snap.company : 'Cashbook')}${S.snap && S.snap.locationName && S.snap.locationName !== 'Main shop' ? ' · ' + esc(S.snap.locationName) : ''}</div><span id="who" class="pill">${esc(S.auth.user.fullName || S.auth.user.username)}</span><span id="st" class="pill"></span><button class="ghost sm" id="syncnow">Sync now</button></header>
+  app.innerHTML = `<header><div class="co">${esc(S.snap ? S.snap.company : 'Cashbook')}${S.snap && S.snap.locationName && S.snap.locationName !== 'Main shop' ? ' · ' + esc(S.snap.locationName) : ''}</div><span id="who" class="pill">${esc(S.auth.user.fullName || S.auth.user.username)}</span><span id="st" class="pill"></span><div class="header-actions"><button class="ghost sm notice-button" id="notifications">Notifications</button><button class="ghost sm" id="walkthrough">Guide</button><button class="ghost sm" id="force-refresh">Force Refresh</button></div></header>
   <nav id="nav"></nav><main id="main"><div id="banners"></div><div id="body"></div></main>`;
-  $('#syncnow').onclick = () => sync(true); renderNav(); renderStatus(); renderBanners(); drawBody();
+  $('#notifications').onclick = () => { S.screen = 'notice'; renderNav(); drawBody(); };
+  $('#walkthrough').onclick = () => showWalkthrough(true); $('#force-refresh').onclick = () => forceRefresh(); renderNav(); renderStatus(); renderBanners(); renderNotifications(); drawBody();
+  setTimeout(() => { showWalkthrough(false); notifyOnce(); }, 180);
 }
 function renderNav() {
   const nav = $('#nav'); if (!nav) return;
   const waiting = pending() + failed();
-  nav.innerHTML = tabs().map(t => `<button data-s="${t[0]}" class="${t[0] === S.screen ? 'on' : ''}">${t[1]}${t[0] === 'sync' && waiting ? ` (${waiting})` : ''}</button>`).join('');
+  nav.innerHTML = tabs().map(t => `<button data-s="${t[0]}" class="${t[0] === S.screen || (t[0] === 'more' && SECONDARY_SCREENS.has(S.screen)) ? 'on' : ''}">${t[1]}${t[0] === 'sync' && waiting ? ` (${waiting})` : ''}</button>`).join('');
   nav.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { S.screen = b.dataset.s; renderNav(); drawBody(); });
 }
 function renderBanners() {
@@ -238,15 +307,15 @@ function renderBanners() {
 }
 function drawBody() {
   const body = $('#body'); if (!body) return;
-  ({home, sale: saleScreen, pay: payScreen, exp: expScreen, stockin: stockInScreen, newp: newProductScreen, stock: stockScreen, cust: custScreen, sync: syncScreen, hist: histScreen, set: setScreen})[S.screen](body);
+  ({home, sale: saleScreen, pay: payScreen, exp: expScreen, stockin: stockInScreen, newp: newProductScreen, stock: stockScreen, cust: custScreen, sync: syncScreen, summary: dailySummaryScreen, notice: notificationScreen, hist: histScreen, set: setScreen, more: moreScreen})[S.screen](body);
 }
 // After a background sync: update the badge, banners and only the screens that have nothing being typed into them.
 // A form you are filling in (sale, payment, expense, receiving stock, new item) is never redrawn, so nothing you typed is lost.
 function softRefresh() {
   if (!S.auth || (S.lock && !S.unlocked) || !$('#body')) { render(); return; }
-  renderStatus(); renderBanners(); renderNav();
+  renderStatus(); renderBanners(); renderNav(); renderNotifications(); notifyOnce();
   const co = $('.co'); if (co && S.snap) co.textContent = S.snap.company + (S.snap.locationName && S.snap.locationName !== 'Main shop' ? ' · ' + S.snap.locationName : '');
-  if (['home', 'sync', 'hist', 'stock', 'cust'].indexOf(S.screen) < 0) return;
+  if (['home', 'sync', 'hist', 'stock', 'cust', 'notice', 'more'].indexOf(S.screen) < 0) return;
   const q = $('#q'), keep = q ? {v: q.value, focus: document.activeElement === q, pos: q.selectionStart} : null;
   drawBody();
   if (keep && $('#q')) { const nq = $('#q'); nq.value = keep.v; nq.dispatchEvent(new Event('input')); if (keep.focus) { nq.focus(); try { nq.setSelectionRange(keep.pos, keep.pos); } catch (e) {} } }
@@ -314,6 +383,115 @@ function home(m) {
   $('#g-sale').onclick = () => { S.screen = 'sale'; renderNav(); drawBody(); }; $('#g-pay').onclick = () => { S.screen = 'pay'; renderNav(); drawBody(); }; $('#g-exp').onclick = () => { S.screen = 'exp'; renderNav(); drawBody(); };
 }
 
+function moreScreen(m) {
+  const cards = [
+    ['Stock & prices', 'Check products, selling prices and quantities available.', 'stock'],
+    ['Customers', 'See the balances customers currently owe.', 'cust'],
+    ['Daily WhatsApp summary', 'Prepare today’s activity summary for approved Chairman or CEO recipients.', 'summary'],
+    ['Notifications', 'See reminders about sales, stock and actions needing attention.', 'notice'],
+    ['My entries', 'Review what you recorded and cancel only work still waiting to sync.', 'hist'],
+    ['Settings', 'Server link, PIN, guide and a safety-copy download.', 'set']
+  ];
+  m.innerHTML = `<h2>More</h2><p class="muted">Useful tools that stay out of the way of daily selling.</p><div class="grid">${cards.map(c => `<div class="card"><h3>${esc(c[0])}</h3><p class="hint">${esc(c[1])}</p><button class="ghost" data-more="${esc(c[2])}">Open</button></div>`).join('')}</div>`;
+  m.querySelectorAll('[data-more]').forEach(b => b.onclick = () => { S.screen = b.dataset.more; renderNav(); drawBody(); });
+}
+function dailySummaryText() {
+  const t = totalsFor('today'), queued = S.queue.filter(e => e.date === todayStr()).length, completed = S.hist.filter(h => h.date === todayStr() && h.status === 'SYNCED').length;
+  const heading = (S.snap && S.snap.company) || 'Cashbook';
+  return `${heading} — daily activity summary\n${todayStr()} · ${S.auth && S.auth.user ? (S.auth.user.fullName || S.auth.user.username) : 'Sales team'}\n\nSales: ${money(t.revenue)} from ${t.invoices} sale${t.invoices === 1 ? '' : 's'}\nUnits sold: ${qty(t.qty)}\nBusiness expenses: ${money(t.expenses)}\nSynced entries today: ${completed}\nPending sync: ${queued}\nNeeds attention: ${failed()}\n\nPrepared in Cashbook. Please review any pending or attention items in Sync centre.`;
+}
+function approvedWhatsAppRecipients(data) {
+  const rows = Array.isArray(data) ? data : (data && (data.rows || data.recipients)) || [];
+  return rows.map((r, i) => ({id: String(r.id || r.recipientId || i), name: String(r.name || r.fullName || 'Recipient'), whatsapp: String(r.whatsapp || r.whatsApp || r.number || ''), position: String(r.position || r.role || '')}))
+    .filter(r => /^(chairman|ceo)$/i.test(r.position.trim()) && r.whatsapp.replace(/\D/g, '').length >= 8);
+}
+function whatsappNumber(value) { const digits = String(value || '').replace(/\D/g, ''); return digits.length >= 8 && digits.length <= 15 ? digits : ''; }
+function dailySummaryScreen(m) {
+  const initial = dailySummaryText();
+  m.innerHTML = `<div class="row"><div><h2>Daily WhatsApp summary</h2><p class="muted">Choose one or more owner-approved Chairman or CEO recipients. Cashbook only opens WhatsApp with the prepared message; you decide whether to send it.</p></div><div class="fit"><button class="ghost" id="wa-refresh">Refresh activity</button></div></div><div class="card"><label>Today’s summary</label><textarea id="wa-text" rows="11">${esc(initial)}</textarea><p class="hint">You may refine the wording before opening WhatsApp. Figures include this device’s entries waiting to sync.</p></div><div class="card"><div class="row"><div><h3>Approved recipients</h3><p class="hint" id="wa-status">Loading Chairman and CEO recipients…</p></div><div class="fit"><label class="hint"><input type="checkbox" id="wa-all" style="width:auto;min-height:0"> Select all</label></div></div><div id="wa-recipients" class="recipient-list"></div><div class="row" style="margin-top:1rem"><div class="fit"><button class="ghost" id="wa-reload">Reload recipients</button></div><div class="fit"><button id="wa-open" disabled>Open selected WhatsApp chats</button></div></div></div>`;
+  let recipients = [];
+  const list = m.querySelector('#wa-recipients'), status = m.querySelector('#wa-status'), all = m.querySelector('#wa-all'), open = m.querySelector('#wa-open');
+  const draw = () => {
+    if (!list || !status || !open) return;
+    if (!recipients.length) { list.innerHTML = ''; open.disabled = true; status.textContent = 'No approved Chairman or CEO WhatsApp recipients are available yet. Ask the owner to add them in the Owner app.'; return; }
+    status.textContent = 'Choose who should receive this summary.';
+    list.innerHTML = recipients.map((r, i) => `<label class="recipient"><input type="checkbox" data-wa-recipient="${i}"><span><b>${esc(r.name)}</b><small>${esc(r.position)} · ${esc(r.whatsapp)}</small></span></label>`).join('');
+    const syncChoice = () => { const selected = [...list.querySelectorAll('[data-wa-recipient]:checked')].length; open.disabled = !selected; if (all) all.checked = selected === recipients.length; };
+    list.querySelectorAll('[data-wa-recipient]').forEach(c => c.onchange = syncChoice);
+    if (all) all.onchange = () => { list.querySelectorAll('[data-wa-recipient]').forEach(c => { c.checked = all.checked; }); syncChoice(); };
+    syncChoice();
+  };
+  const load = async () => {
+    if (status) status.textContent = 'Loading approved recipients…'; if (open) open.disabled = true;
+    try {
+      const data = await call('whatsAppRecipients', {}, 15000);
+      if (!m.isConnected || S.screen !== 'summary') return;
+      recipients = approvedWhatsAppRecipients(data); draw();
+    } catch (e) {
+      if (!m.isConnected || S.screen !== 'summary') return;
+      recipients = []; if (status) status.textContent = 'Recipients are not available yet. Ask the owner to add Chairman or CEO WhatsApp contacts, then Force Refresh.'; if (list) list.innerHTML = '';
+    }
+  };
+  const refresh = m.querySelector('#wa-refresh'); if (refresh) refresh.onclick = async () => { await forceRefresh(); const text = m.querySelector('#wa-text'); if (text) text.value = dailySummaryText(); };
+  const reload = m.querySelector('#wa-reload'); if (reload) reload.onclick = load;
+  if (open) open.onclick = () => {
+    const text = (m.querySelector('#wa-text') || {}).value || dailySummaryText();
+    const chosen = [...(list ? list.querySelectorAll('[data-wa-recipient]:checked') : [])].map(c => recipients[+c.dataset.waRecipient]).filter(Boolean);
+    if (!chosen.length) return toast('Select at least one approved recipient.', true);
+    let opened = 0; chosen.forEach(r => { const n = whatsappNumber(r.whatsapp); if (!n) return; const w = window.open('https://wa.me/' + n + '?text=' + encodeURIComponent(text), '_blank', 'noopener'); if (w) opened++; });
+    toast(opened ? `Opened ${opened} WhatsApp chat${opened === 1 ? '' : 's'} with your prepared summary.` : 'Your browser blocked the WhatsApp windows. Allow pop-ups, then try again.', !opened);
+  };
+  load();
+}
+
+/* ---------- optional product photo / barcode scan ---------- */
+const barcodeFormats = ['ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e', 'qr_code'];
+function readImageData(file) {
+  return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result || '')); reader.onerror = () => reject(new Error('Could not read that image.')); reader.readAsDataURL(file); });
+}
+async function compactImageData(file) {
+  const raw = await readImageData(file);
+  if (raw.length <= 700000 || !window.createImageBitmap) return raw;
+  try {
+    const bitmap = await createImageBitmap(file), scale = Math.min(1, 1280 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(bitmap.width * scale)); canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const compressed = canvas.toDataURL('image/jpeg', .82); if (bitmap.close) bitmap.close(); return compressed.length < raw.length ? compressed : raw;
+  } catch (e) { return raw; }
+}
+async function barcodeFromImage(file) {
+  if (!('BarcodeDetector' in window) || !window.createImageBitmap) return '';
+  try {
+    const bitmap = await createImageBitmap(file), detector = new BarcodeDetector({formats: barcodeFormats}), rows = await detector.detect(bitmap); if (bitmap.close) bitmap.close();
+    return rows && rows[0] && rows[0].rawValue ? String(rows[0].rawValue).trim() : '';
+  } catch (e) { return ''; }
+}
+function findScannedProduct(value) {
+  const query = String(value || '').trim().toLowerCase(); if (!query) return null;
+  return allProducts().find(p => String(p.sku || '').toLowerCase() === query) || allProducts().find(p => String(p.name || '').toLowerCase() === query) || null;
+}
+function scanProductImage(options) {
+  const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.setAttribute('capture', 'environment'); input.style.display = 'none'; document.body.appendChild(input);
+  input.onchange = async () => {
+    const file = input.files && input.files[0]; input.remove(); if (!file) return;
+    if (!/^image\//.test(file.type || '')) { toast('Choose a product image or barcode photo.', true); return; }
+    if (file.size > 8 * 1024 * 1024) { toast('Choose an image smaller than 8 MB.', true); return; }
+    toast('Scanning product image…');
+    const barcode = await barcodeFromImage(file), local = findScannedProduct(barcode);
+    let imageData = '', recognized = null;
+    try { imageData = await compactImageData(file); } catch (e) {}
+    if (navigator.onLine && S.api && imageData) {
+      try { recognized = await call('recognizeProductImage', {imageData, filename: file.name || 'product-image.jpg', barcode}, 30000); } catch (e) { /* The manual and local-barcode paths remain available when the optional recognition service is not deployed. */ }
+    }
+    const candidate = recognized && (recognized.product || recognized), suggested = findScannedProduct(candidate && (candidate.sku || candidate.barcode || candidate.code)) || local;
+    if (suggested) { options.onMatch && options.onMatch(suggested, {file, imageData, barcode, recognized}); return; }
+    if (recognized && options.onRecognized) { options.onRecognized(recognized, {file, imageData, barcode}); return; }
+    if (barcode && options.onBarcode) { options.onBarcode(barcode, {file, imageData}); return; }
+    toast('No matching product was found. You can still search or enter it manually.', true);
+  };
+  input.click();
+}
+
 let CART = [], SF = {cust: 'walk', payMode: 'FULL', paid: '', method: 'Cash', notes: '', nn: '', np: ''};
 const linePrice = c => { const p = prod(c.sku) || {price: 0}; return p.editable && c.price !== undefined && c.price !== '' ? +c.price || 0 : p.price; };
 const salePriceReady = c => { const p = prod(c.sku); return !!p && +linePrice(c) > 0; };
@@ -322,7 +500,7 @@ function saleScreen(m) {
   if (!S.snap) { m.innerHTML = '<div class="card">No price list yet. Connect to the internet once and tap Sync now.</div>'; return; }
   m.innerHTML = `<h2>New sale</h2><div class="card"><div class="row"><div><label>Customer</label><select id="cust"><option value="walk">Walk-in (paid in full)</option>${S.snap.customers.map(c => `<option value="${esc(c.id)}">${esc(c.name)}${custBalance(c) > 0 ? ' — owes ' + money(custBalance(c)) : ''}</option>`).join('')}<option value="new">+ New customer</option></select></div>
   <div id="newc" class="row" style="display:none"><div><label>Name</label><input id="nn"></div><div><label>Phone</label><input id="np" inputmode="tel"></div></div></div>
-  <div style="margin-top:1rem"><label>Find a product (name, code, or scan)</label><input id="ps" autocomplete="off" placeholder="Type or scan…"><div id="hits"></div></div></div>
+  <div style="margin-top:1rem"><label>Find a product (name, code, or scan)</label><div class="row"><div><input id="ps" autocomplete="off" placeholder="Type or scan…"></div><div class="fit"><button type="button" class="ghost sm" id="ps-scan">Scan product image</button></div></div><div id="hits"></div></div></div>
   <div class="card"><div id="cart"></div><div class="row" style="margin-top:1rem"><div><label>Payment</label><select id="paymode"><option value="FULL">Paid in full</option><option value="PART">Part payment</option><option value="LATER">Pay later</option></select></div><div><label>Amount received / tendered now</label><input id="paid" type="number" step="any" min="0"><div class="hint" id="paidhelp"></div></div><div><label>Payment method</label><select id="method">${S.snap.paymentMethods.map(x => `<option>${esc(x)}</option>`).join('')}</select></div><div><label>Note (optional)</label><input id="notes"></div></div>
   <div class="row" style="margin-top:1rem"><div><div class="total" id="tot"></div><div class="hint" id="paysummary"></div><div class="hint neg" id="price-alert" role="status"></div></div><div class="fit"><button class="ghost" id="clr">Clear</button></div><div class="fit"><button id="save">Save sale</button></div></div></div>`;
   $('#cust').value = SF.cust; $('#paymode').value = SF.payMode || 'FULL'; $('#paid').value = SF.paid; $('#method').value = SF.method; $('#notes').value = SF.notes; $('#nn').value = SF.nn; $('#np').value = SF.np;
@@ -345,8 +523,8 @@ function saleScreen(m) {
     $('#tot').textContent = money(t); $('#paysummary').innerHTML = `Received now <b>${money(kept)}</b>${balance ? ` · Balance <b class="neg">${money(balance)}</b>` : ''}${change ? ` · Change due <b>${money(change)}</b>` : ''}`;
     setSaleSaveState();
   };
-  ['paid', 'notes', 'nn', 'np'].forEach(id => $('#' + id).addEventListener('input', sync_));
-  ['cust', 'paymode', 'method'].forEach(id => $('#' + id).addEventListener('change', sync_));
+  ['paid', 'notes', 'nn', 'np'].forEach(id => { const el = $('#' + id); if (el) el.addEventListener('input', sync_); });
+  ['cust', 'paymode', 'method'].forEach(id => { const el = $('#' + id); if (el) el.addEventListener('change', sync_); });
   const drawCart = () => { $('#cart').innerHTML = CART.length ? `<div class="scroll"><table class="sale-lines"><thead><tr><th>Product</th><th class="num">Qty</th><th class="num">Unit cost</th><th class="num">Selling price</th><th class="num">Available</th><th class="num">Total</th><th></th></tr></thead><tbody>${CART.map((c, i) => { const p = prod(c.sku), a = avail(c.sku);
       const hint = !costReady(p) ? '<div class="hint neg">Purchase cost needs a manager update before this can be sold.</div>' : isSvc(p) ? `<div class="hint">service${p.editable ? ' · enter the price you quote' : ''}</div>` : `<div class="hint ${a < c.qty ? 'neg' : ''}">${qty(a)} available${a < c.qty ? ' — not enough on record — ' + ((S.snap && S.snap.oversellPolicy) === 'FLAG' ? 'will be flagged' : 'cannot be sold until stock is recorded') : ''}</div>`;
       const shownCost = +p.cost > 0 ? money(p.cost) : '<span class="muted">not set</span>', shownAvailable = isSvc(p) ? '—' : `${qty(a)} ${esc(p.unit)}`;
@@ -356,6 +534,7 @@ function saleScreen(m) {
     $('#cart').querySelectorAll('[data-p]').forEach(i => i.oninput = () => { CART[+i.dataset.p].price = i.value; upd(+i.dataset.p); });
     $('#cart').querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { CART.splice(+b.dataset.rm, 1); drawCart(); sync_(); }); sync_(); };
   const add = sku => { const p = prod(sku); if (!costReady(p)) return toast((p ? p.name : 'This product') + ' cannot be sold yet. Contact the business owner or manager to update its purchase cost first.', true); if (!p.editable && !(+p.price > 0)) return toast(p.name + ' has no selling price. Ask the business owner or manager to set one before selling it.', true); const ex = CART.find(c => c.sku === sku); if (ex) ex.qty++; else CART.push({sku, qty: 1}); $('#ps').value = ''; $('#hits').innerHTML = ''; drawCart(); $('#ps').focus(); };
+  const scan = $('#ps-scan'); if (scan) scan.onclick = () => scanProductImage({onMatch: p => { if (!m.isConnected || S.screen !== 'sale') return; add(p.sku); }, onRecognized: r => { if (!m.isConnected || S.screen !== 'sale') return; const search = $('#ps'); if (!search) return; search.value = (r.suggestedProduct && (r.suggestedProduct.sku || r.suggestedProduct.name)) || ''; search.dispatchEvent(new Event('input')); }});
   $('#ps').oninput = e => { const t = e.target.value.trim().toLowerCase(); if (!t) { $('#hits').innerHTML = ''; return; }
     const r = allProducts().filter(p => (p.sku + ' ' + p.name + ' ' + p.category).toLowerCase().includes(t)).slice(0, 8);
     $('#hits').innerHTML = r.map(p => { const blocked = !costReady(p) || (!p.editable && !(+p.price > 0)), shownCost = +p.cost > 0 ? money(p.cost) : 'not set', shownPrice = p.editable ? (+p.price > 0 ? 'quote per job' : 'enter above zero') : money(p.price), shownAvailable = isSvc(p) ? '— service' : qty(avail(p.sku)) + ' ' + esc(p.unit);
@@ -426,14 +605,14 @@ function stockInScreen(m) {
   const items = () => allProducts().filter(p => !isSvc(p));
   m.innerHTML = `<h2>Receive stock</h2><div class="card"><p class="muted">Use this when new goods arrive. The cost you enter is checked by the owner. Stock goes up in <b>${esc(S.snap.locationName || 'your shop')}</b> straight away and the office is updated when you sync.</p>
   <div class="row"><div><label>Supplier</label><select id="si-sup"><option value="">Cash purchase (no supplier)</option>${(S.snap.suppliers || []).map(x => `<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('')}<option value="new">+ New supplier</option></select></div><div id="si-newc" style="display:none"><label>New supplier name</label><input id="si-nn"></div></div>
-  <div style="margin-top:1rem"><label>Find a product (name, code, or scan)</label><input id="si-ps" autocomplete="off" placeholder="Type or scan…"><div id="si-hits"></div></div></div>
+  <div style="margin-top:1rem"><label>Find a product (name, code, or scan)</label><div class="row"><div><input id="si-ps" autocomplete="off" placeholder="Type or scan…"></div><div class="fit"><button type="button" class="ghost sm" id="si-scan">Scan product image</button></div></div><div id="si-hits"></div></div></div>
   <div class="card"><div id="si-cart"></div><div class="row" style="margin-top:1rem"><div><label>Amount paid now</label><input id="si-paid" type="number" step="any" min="0" placeholder="Leave empty = paid in full"><div class="hint" id="si-paid-help"></div></div><div><label>Payment method</label><select id="si-method">${S.snap.paymentMethods.map(x => `<option>${esc(x)}</option>`).join('')}</select></div><div><label>Note (optional)</label><input id="si-notes"></div></div>
   <div class="row" style="margin-top:1rem"><div><div class="total" id="si-tot"></div><div class="hint" id="si-summary"></div></div><div class="fit"><button class="ghost" id="si-clr">Clear</button></div><div class="fit"><button id="si-save">Save stock received</button></div></div></div>`;
   $('#si-sup').value = SIF.sup; $('#si-nn').value = SIF.nn; $('#si-paid').value = SIF.paid; $('#si-method').value = SIF.method; $('#si-notes').value = SIF.notes;
   const total = () => SI.reduce((t, c) => t + Math.round((c.qty * (+c.cost || 0)) * 100) / 100, 0);
   const sync_ = () => { SIF = {sup: $('#si-sup').value, nn: $('#si-nn').value, paid: $('#si-paid').value, method: $('#si-method').value, notes: $('#si-notes').value}; $('#si-newc').style.display = SIF.sup === 'new' ? '' : 'none'; const t = total(), hasSupplier = SIF.sup !== '', paidEl = $('#si-paid'); paidEl.disabled = !hasSupplier; if (!hasSupplier) { paidEl.value = ''; SIF.paid = ''; $('#si-paid-help').textContent = 'Cash purchase: paid in full. Choose or add a supplier to record a part payment.'; } else $('#si-paid-help').textContent = 'Leave blank for paid in full, or enter what was paid now.'; const raw = SIF.paid === '' ? t : +SIF.paid, paid = Number.isFinite(raw) && raw >= 0 ? raw : 0, balance = Math.max(0, t - paid), tooMuch = paid > t; $('#si-tot').textContent = money(t); $('#si-summary').innerHTML = tooMuch ? '<b class="neg">Amount paid cannot be more than the purchase total.</b>' : `Paid now <b>${money(paid)}</b>${balance ? ` · Supplier balance <b class="neg">${money(balance)}</b>` : ''}`; };
-  ['si-nn', 'si-paid', 'si-notes'].forEach(id => $('#' + id).addEventListener('input', sync_));
-  ['si-sup', 'si-method'].forEach(id => $('#' + id).addEventListener('change', sync_));
+  ['si-nn', 'si-paid', 'si-notes'].forEach(id => { const el = $('#' + id); if (el) el.addEventListener('input', sync_); });
+  ['si-sup', 'si-method'].forEach(id => { const el = $('#' + id); if (el) el.addEventListener('change', sync_); });
   const draw = () => { $('#si-cart').innerHTML = SI.length ? `<table><thead><tr><th>Product</th><th class="num">Qty received</th><th class="num">Cost per unit</th><th class="num">Total</th><th></th></tr></thead><tbody>${SI.map((c, i) => { const p = prod(c.sku);
       return `<tr><td>${esc(p.name)}<div class="hint">${esc(p.sku)} · now ${qty(avail(p.sku))} ${esc(p.unit)}</div></td><td class="num"><input type="number" step="any" min="0" value="${c.qty}" data-q="${i}" style="width:90px;text-align:right"></td><td class="num"><input type="number" step="any" min="0" value="${c.cost}" data-c="${i}" style="width:110px;text-align:right"></td><td class="num" data-lt="${i}">${money(c.qty * (+c.cost || 0))}</td><td><button class="ghost sm" data-rm="${i}">✕</button></td></tr>`; }).join('')}</tbody></table>` : '<p class="muted">No products yet. Search above and tap a product to add it.</p>';
     const upd = k => { sync_(); const cell = $('#si-cart [data-lt="' + k + '"]'); if (cell) cell.textContent = money(SI[k].qty * (+SI[k].cost || 0)); };
@@ -441,6 +620,7 @@ function stockInScreen(m) {
     $('#si-cart').querySelectorAll('[data-c]').forEach(i => i.oninput = () => { SI[+i.dataset.c].cost = i.value; upd(+i.dataset.c); });
     $('#si-cart').querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { SI.splice(+b.dataset.rm, 1); draw(); }); sync_(); };
   const add = sku => { if (!SI.find(c => c.sku === sku)) SI.push({sku, qty: 1, cost: ''}); $('#si-ps').value = ''; $('#si-hits').innerHTML = ''; draw(); $('#si-ps').focus(); };
+  const scan = $('#si-scan'); if (scan) scan.onclick = () => scanProductImage({onMatch: p => { if (!m.isConnected || S.screen !== 'stockin') return; if (items().some(x => x.sku === p.sku)) add(p.sku); else toast('That product is a service and cannot be received as stock.', true); }, onRecognized: r => { if (!m.isConnected || S.screen !== 'stockin') return; const search = $('#si-ps'); if (!search) return; search.value = (r.suggestedProduct && (r.suggestedProduct.sku || r.suggestedProduct.name)) || ''; search.dispatchEvent(new Event('input')); }});
   $('#si-ps').oninput = e => { const t = e.target.value.trim().toLowerCase(); if (!t) { $('#si-hits').innerHTML = ''; return; }
     const r = items().filter(p => (p.sku + ' ' + p.name + ' ' + p.category).toLowerCase().includes(t)).slice(0, 8);
     $('#si-hits').innerHTML = r.map(p => `<button class="hit" data-a="${esc(p.sku)}"><span>${esc(p.name)} <span class="hint">${esc(p.sku)}</span></span><span>${qty(avail(p.sku))} in stock</span></button>`).join('') || '<p class="muted">No match. If it is a brand-new product, add it first under “Add item / service”.</p>';
@@ -470,12 +650,17 @@ function newProductScreen(m) {
   if (!can('ADD_PRODUCT')) { m.innerHTML = '<div class="card">You do not have permission to add items or services. Ask your manager.</div>'; return; }
   const cats = S.snap.categories || [];
   m.innerHTML = `<h2>Add an item or service</h2><div class="card"><p class="muted">Add the product, then ask the owner to set its cost. Sync again before selling it. You can receive stock if your account has permission.</p>
-  <div class="row"><div><label>This is a</label><select id="np-kind"><option value="ITEM">Item (counted in stock)</option><option value="SERVICE">Service (printing, modelling… no stock)</option></select></div><div><label>Name</label><input id="np-name"></div></div>
+  <div class="row"><div><label>This is a</label><select id="np-kind"><option value="ITEM">Item (counted in stock)</option><option value="SERVICE">Service (printing, modelling… no stock)</option></select></div><div><label>Name</label><input id="np-name"></div><div class="fit"><label>&nbsp;</label><button type="button" class="ghost sm" id="np-scan">Scan product image</button></div></div><p class="hint">A scan can find an existing item or suggest details for a new one. The owner reviews new products and keeps the private product-image catalogue.</p>
   <div class="row" style="margin-top:.8rem"><div><label>Category</label><select id="np-cat">${cats.map(c => `<option>${esc(c)}</option>`).join('')}<option value="__new">+ New category…</option></select></div><div id="np-newcat-w" style="display:none"><label>New category</label><input id="np-newcat"></div><div><label>Unit (pc, sheet, print, hour, job…)</label><input id="np-unit" value="pc"></div></div>
   <div class="row" style="margin:.8rem 0"><div><label>Selling price</label><input id="np-price" type="number" step="any" min="0"></div><div id="np-re-w"><label>Alert me when stock is at or below</label><input id="np-re" type="number" step="any" min="0" value="0"></div><div id="np-pe-w" style="display:none"><label><input type="checkbox" id="np-pe" style="width:auto;min-height:0"> Price is quoted per job</label></div></div>
   <button id="np-save">Save</button></div>`;
   const sync_ = () => { const svc = $('#np-kind').value === 'SERVICE'; $('#np-re-w').style.display = svc ? 'none' : ''; $('#np-pe-w').style.display = svc ? '' : 'none'; $('#np-newcat-w').style.display = $('#np-cat').value === '__new' || !cats.length ? '' : 'none'; if ($('#np-unit').value === 'pc' && svc) $('#np-unit').value = 'job'; else if ($('#np-unit').value === 'job' && !svc) $('#np-unit').value = 'pc'; };
-  bindDraft('newp', ['np-kind', 'np-name', 'np-cat', 'np-newcat', 'np-unit', 'np-price', 're-placeholder'].filter(x => x !== 're-placeholder').concat(['np-re'])); ['np-kind', 'np-cat'].forEach(id => $('#' + id).addEventListener('input', sync_)); sync_();
+  const scan = $('#np-scan'); if (scan) scan.onclick = () => scanProductImage({
+    onMatch: p => { if (!m.isConnected || S.screen !== 'newp') return; const name = $('#np-name'); if (name) name.value = p.name; toast(p.name + ' already exists. Use search to sell or receive it instead of adding a duplicate.', true); },
+    onRecognized: r => { if (!m.isConnected || S.screen !== 'newp') return; const s = r.suggestedProduct || {}, name = $('#np-name'); if (name && !name.value && s.name) name.value = s.name; toast('Scan details prepared where possible. Please review before saving.'); },
+    onBarcode: code => { if (!m.isConnected || S.screen !== 'newp') return; const name = $('#np-name'); if (name && !name.value) name.value = code; toast('Barcode read. Complete the product details before saving.'); }
+  });
+  bindDraft('newp', ['np-kind', 'np-name', 'np-cat', 'np-newcat', 'np-unit', 'np-price', 're-placeholder'].filter(x => x !== 're-placeholder').concat(['np-re'])); ['np-kind', 'np-cat'].forEach(id => { const el = $('#' + id); if (el) el.addEventListener('input', sync_); }); sync_();
   $('#np-save').onclick = () => {
     const name = $('#np-name').value.trim(), cat = ($('#np-cat').value === '__new' || !cats.length) ? $('#np-newcat').value.trim() : $('#np-cat').value, price = +$('#np-price').value;
     if (!name) return toast('Enter a name.', true); if (!cat) return toast('Choose or type a category.', true); if (!($('#np-price').value !== '' && price >= 0)) return toast('Enter the selling price.', true);
