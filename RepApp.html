@@ -35,6 +35,7 @@ main{max-width:980px;margin:0 auto;padding:1rem}
 .tag{display:inline-block;padding:.05rem .5rem;border-radius:99px;font-size:.78rem;background:var(--amberbg);color:var(--amber)}.tag.g{background:var(--greenbg);color:var(--green)}.tag.r{background:var(--redbg);color:var(--red)}
 .banner{padding:.7rem 1rem;border-radius:8px;margin-bottom:1rem;background:var(--amberbg);color:#5a3b00}.banner.r{background:var(--redbg);color:#7a1610}
   .hit{display:flex;justify-content:space-between;gap:1rem;width:100%;text-align:left;background:#fff;color:var(--ink);border:1px solid var(--line);margin-top:.3rem}.hit:disabled{opacity:.65;cursor:not-allowed}
+  table.sale-lines{min-width:760px}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:.7rem;padding-top:.7rem;border-top:1px solid var(--line)}.stats b{display:block;font:700 1.1rem inherit;font-variant-numeric:tabular-nums}.stats span{font-size:.82rem;color:var(--ink2)}.stats .spent b{color:var(--red)}
 .total{font:700 1.5rem inherit;font-variant-numeric:tabular-nums}
 .center{min-height:100vh;display:grid;place-items:center;padding:1rem}.center .card{width:100%;max-width:400px}
@@ -42,7 +43,7 @@ main{max-width:980px;margin:0 auto;padding:1rem}
 #toast div{background:var(--ink);color:#fff;padding:.7rem 1.1rem;border-radius:8px}#toast .err{background:var(--red)}
 .overlay{position:fixed;inset:0;background:#0007;display:flex;justify-content:center;align-items:flex-start;padding:4vh 1rem;overflow:auto;z-index:40}.modal{background:#fff;border-radius:12px;padding:1.2rem;width:100%;max-width:460px}
 #receipt{display:none}
-  @media(max-width:600px){body{font-size:15px}header{padding:.55rem .7rem;gap:.45rem}header .co{flex-basis:100%}main{padding:.7rem}.card{padding:.8rem}.grid{grid-template-columns:1fr}.row{display:grid;grid-template-columns:minmax(0,1fr);gap:.65rem;align-items:stretch}.row>*{min-width:0}.row>.fit{width:100%}.row>.fit button{width:100%}.hit{gap:.5rem;padding:.55rem .65rem;align-items:center}.scroll>table{min-width:520px}.modal{padding:1rem}.stats{grid-template-columns:1fr 1fr}.total{font-size:1.3rem}}
+  @media(max-width:600px){body{font-size:15px}header{padding:.55rem .7rem;gap:.45rem}header .co{flex-basis:100%}main{padding:.7rem}.card{padding:.8rem}.grid{grid-template-columns:1fr}.row{display:grid;grid-template-columns:minmax(0,1fr);gap:.65rem;align-items:stretch}.row>*{min-width:0}.row>.fit{width:100%}.row>.fit button{width:100%}.hit{gap:.5rem;padding:.55rem .65rem;align-items:center}.scroll>table{min-width:520px}.scroll>table.sale-lines{min-width:760px}.modal{padding:1rem}.stats{grid-template-columns:1fr 1fr}.total{font-size:1.3rem}}
   @media print{body>*{display:none!important}#receipt{display:block!important;width:78mm;margin:0;font:12px/1.35 monospace;color:#000}#receipt table td,#receipt table th{border:0;padding:1px 0}}
 </style>
 </head>
@@ -61,10 +62,12 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 // What belongs to the PC (server link, sign-in, PIN lock) is stored once. Everything a person produces (waiting entries, history,
 // price list, counters, half-filled forms) is stored under that person's own name, so nobody ever sees another person's work.
 let WHO = '';
-const SCOPED = ['queue', 'hist', 'snap', 'lastSync', 'docseq', 'newseq', 'epoch', 'drafts'];
+const SCOPED = ['queue', 'failed', 'syncIssue', 'hist', 'snap', 'lastSync', 'docseq', 'newseq', 'epoch', 'drafts'];
 const skey = k => 'cb_' + (SCOPED.indexOf(k) >= 0 ? 'u_' + WHO + '_' : '') + k;
 const LSget = (k, d) => { try { const v = localStorage.getItem(skey(k)); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
-const LSset = (k, v) => { try { localStorage.setItem(skey(k), JSON.stringify(v)); return true; } catch (e) { toast('This browser cannot store data. Do not close the app and tell your manager.', true); return false; } };
+let storageWarningAt = 0;
+const storageWarning = () => { const now = Date.now(); if (now - storageWarningAt > 5000) toast('This browser cannot store data. Do not close the app and tell your manager.', true); storageWarningAt = now; };
+const LSset = (k, v) => { try { localStorage.setItem(skey(k), JSON.stringify(v)); return true; } catch (e) { storageWarning(); return false; } };
 const whoOf = a => a && a.user && a.user.username ? String(a.user.username).toLowerCase().replace(/[^a-z0-9._-]/g, '') : '';
 const uid = () => crypto.randomUUID ? crypto.randomUUID() : 'id-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
 const pad = (n, l = 2) => String(n).padStart(l, '0');
@@ -73,10 +76,10 @@ const weekStartStr = () => { const d = new Date(); d.setDate(d.getDate() - ((d.g
 
 try { const q = new URLSearchParams(location.search).get('api'); if (q && /^https:\/\/script\.google(usercontent)?\.com\//.test(q)) { localStorage.setItem('cb_api', JSON.stringify(q)); history.replaceState(null, '', location.pathname); } } catch (e) {}
 const S = {
-  api: LSget('api', '') || DEFAULT_API_URL, auth: LSget('auth', null), lock: LSget('lock', null), snap: null, queue: [], hist: [], lastSync: null, epoch: null,
+  api: LSget('api', '') || DEFAULT_API_URL, auth: LSget('auth', null), lock: LSget('lock', null), snap: null, queue: [], failed: [], syncIssue: null, hist: [], lastSync: null, epoch: null,
   unlocked: false, needLogin: false, syncing: false, screen: 'home', unlockFails: 0
 };
-function loadMine() { WHO = whoOf(S.auth); S.snap = WHO ? LSget('snap', null) : null; S.queue = WHO ? LSget('queue', []) : []; S.hist = WHO ? LSget('hist', []) : []; S.lastSync = WHO ? LSget('lastSync', null) : null; S.epoch = WHO ? LSget('epoch', null) : null; DRAFT = WHO ? LSget('drafts', {}) : {}; }
+function loadMine() { WHO = whoOf(S.auth); S.snap = WHO ? LSget('snap', null) : null; S.queue = WHO ? LSget('queue', []) : []; S.failed = WHO ? LSget('failed', []) : []; S.syncIssue = WHO ? LSget('syncIssue', null) : null; S.hist = WHO ? LSget('hist', []) : []; S.lastSync = WHO ? LSget('lastSync', null) : null; S.epoch = WHO ? LSget('epoch', null) : null; DRAFT = WHO ? LSget('drafts', {}) : {}; if (!Array.isArray(S.queue)) S.queue = []; if (!Array.isArray(S.failed)) S.failed = []; }
 let DRAFT = {};
 (function migrateOldStorage() {            // version 1.1 kept everything in shared keys: hand it to whoever is signed in
   try { const u = whoOf(S.auth); if (!u) return;
@@ -84,7 +87,15 @@ let DRAFT = {};
   } catch (e) {}
 })();
 loadMine();
-const persist = () => { LSset('queue', S.queue); LSset('hist', S.hist); LSset('snap', S.snap); LSset('lastSync', S.lastSync); LSset('epoch', S.epoch); LSset('auth', S.auth); };
+const persist = () => {
+  // The pending queue is the durable source for a newly saved action. Return
+  // only that write's result so a non-critical cache write cannot falsely tell
+  // the user that their already-stored action was lost.
+  const queueSaved = LSset('queue', S.queue);
+  LSset('failed', S.failed); LSset('syncIssue', S.syncIssue); LSset('hist', S.hist);
+  LSset('snap', S.snap); LSset('lastSync', S.lastSync); LSset('epoch', S.epoch); LSset('auth', S.auth);
+  return queueSaved;
+};
 const cur = () => (S.snap && S.snap.currency) || '₦';
 const money = n => cur() + Number(n || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 const qty = n => Number(n || 0).toLocaleString('en-US', {maximumFractionDigits: 4});
@@ -121,23 +132,35 @@ async function sync(manual) {
       const data = await call('sync', {epoch: S.epoch || undefined, entries: batch.map(e => { const c = {}; Object.keys(e).forEach(k => { if (k[0] !== '_') c[k] = e[k]; }); return c; })});
       if (data.epochChanged) { handleReset(data.snapshot); break; }
       const done = {}; data.results.forEach(r => done[r.clientId] = r); const at = new Date().toISOString();
-      batch.forEach(e => { const r = done[e.clientId]; if (!r) return;
-        S.hist.unshift({clientId: e.clientId, type: e.type, label: e._label, amount: e._total, date: e.date, docNo: r.docNo || e.docNo, status: r.status === 'ERROR' ? 'REJECTED' : 'SYNCED', message: r.message || '', flags: r.flags || [], at, seen: r.status !== 'ERROR'}); });
+      batch.forEach(e => { const r = done[e.clientId]; if (!r) return; recordSyncResult(e, r, at); });
       S.queue = S.queue.filter(e => !done[e.clientId]); S.hist = S.hist.slice(0, 300);
-      S.snap = data.snapshot; S.epoch = data.snapshot.epoch || S.epoch; S.lastSync = at; persist();
+      S.snap = data.snapshot; S.epoch = data.snapshot.epoch || S.epoch; S.lastSync = at; S.syncIssue = null; persist();
       if (!Object.keys(done).length) break;
     } while (S.queue.length && ++guard < 30);
     S.needLogin = false;
-    if (manual) toast('Synced');
-  } catch (e) { if (e.code === 'AUTH') S.needLogin = true; if (manual || e.code === 'AUTH') toast(e.message, true); }
+    if (manual) toast(failed() ? failed() + ' action' + (failed() === 1 ? ' needs' : 's need') + ' attention in Sync centre.' : 'Synced', !!failed());
+  } catch (e) { if (e.code === 'AUTH') S.needLogin = true; S.syncIssue = {kind: e.code === 'AUTH' ? 'AUTH' : 'TRANSPORT', code: e.code || 'NET', message: e.message || 'Could not reach the server.', at: new Date().toISOString()}; persist(); if (manual || e.code === 'AUTH') toast(e.message, true); }
   S.syncing = false; softRefresh();
+}
+// Keep a server-rejected action intact on this device. It is intentionally not
+// retried automatically: validation/permission errors need a person to decide
+// when a retry is appropriate. The original clientId remains unchanged, so an
+// explicit retry is idempotent if the server actually completed it first.
+function recordSyncResult(e, r, at) {
+  const rejected = r.status === 'ERROR' || r.status === 'REJECTED';
+  const summary = {clientId: e.clientId, type: e.type, label: e._label, amount: e._total, date: e.date, docNo: r.docNo || e.docNo, status: rejected ? 'REJECTED' : 'SYNCED', message: r.message || '', flags: r.flags || [], at, seen: !rejected};
+  const oldHistory = S.hist.findIndex(h => h.clientId === e.clientId);
+  if (oldHistory >= 0) S.hist[oldHistory] = Object.assign({}, S.hist[oldHistory], summary); else S.hist.unshift(summary);
+  const previous = S.failed.find(x => x.entry && x.entry.clientId === e.clientId);
+  S.failed = S.failed.filter(x => !x.entry || x.entry.clientId !== e.clientId);
+  if (rejected) S.failed.unshift({entry: JSON.parse(JSON.stringify(e)), message: summary.message || 'The server rejected this action.', at, attempts: (previous ? +previous.attempts || 0 : 0) + 1});
 }
 // The office wiped its data (factory reset). Entries still waiting here belong to the old books, so they are saved to a file and cleared.
 function handleReset(snap) {
-  const n = S.queue.length;
-  if (n) { const blob = new Blob([JSON.stringify({note: 'Entries that had not synced when the office reset its data', savedAt: new Date().toISOString(), user: S.auth.user, entries: S.queue}, null, 1)], {type: 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'cashbook-before-reset-' + todayStr() + '.json'; a.click(); }
-  S.queue = []; S.hist = []; S.snap = snap; S.epoch = snap.epoch; S.lastSync = new Date().toISOString(); persist();
-  alert('The office has reset its records, so this app was refreshed.' + (n ? '\n\n' + n + ' entr' + (n > 1 ? 'ies' : 'y') + ' that had not been sent were saved to a file in your Downloads folder and removed. Give the file to your manager.' : ''));
+  const n = S.queue.length + S.failed.length;
+  if (n) { const blob = new Blob([JSON.stringify({note: 'Actions held on this device when the office reset its data', savedAt: new Date().toISOString(), user: S.auth.user, entries: S.queue, failed: S.failed, syncIssue: S.syncIssue}, null, 1)], {type: 'application/json'}); const a = document.createElement('a'), url = URL.createObjectURL(blob); a.href = url; a.download = 'cashbook-before-reset-' + todayStr() + '.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
+  S.queue = []; S.failed = []; S.syncIssue = null; S.hist = []; S.snap = snap; S.epoch = snap.epoch; S.lastSync = new Date().toISOString(); persist();
+  alert('The office has reset its records, so this app was refreshed.' + (n ? '\n\n' + n + ' action' + (n > 1 ? 's were' : ' was') + ' saved to a file in your Downloads folder and removed. Give the file to your manager.' : ''));
 }
 const REFRESH_MS = 120000;   // while the app is open and online: send waiting entries and refresh prices, stock and totals about every 2 minutes
 setInterval(() => { if (navigator.onLine && S.auth && !S.needLogin && S.unlocked && !document.hidden && (S.queue.length || !S.lastSync || Date.now() - Date.parse(S.lastSync) > REFRESH_MS - 5000)) sync(false); }, 30000);
@@ -148,7 +171,7 @@ window.addEventListener('offline', renderStatus);
 /* ---------- helpers on local data ---------- */
 function allProducts() {
   const base = S.snap ? S.snap.products : [], have = {}; base.forEach(p => have[p.sku] = true);
-  const local = S.queue.filter(e => e.type === 'ADD_PRODUCT' && !have[e.sku]).map(e => ({sku: e.sku, name: e.name, category: e.category, unit: e.unit, price: e.price, type: e.kind, editable: e.kind === 'SERVICE' && !!e.priceEditable, costReady: false, stock: e.kind === 'SERVICE' ? null : 0, _local: true}));
+  const local = S.queue.filter(e => e.type === 'ADD_PRODUCT' && !have[e.sku]).map(e => ({sku: e.sku, name: e.name, category: e.category, unit: e.unit, price: e.price, cost: 0, type: e.kind, editable: e.kind === 'SERVICE' && !!e.priceEditable, costReady: false, stock: e.kind === 'SERVICE' ? null : 0, _local: true}));
   return base.concat(local);
 }
 const prod = sku => allProducts().find(p => p.sku === sku);
@@ -156,6 +179,7 @@ const isSvc = p => p && p.type === 'SERVICE';
   const costReady = p => !!p && p.costReady === true;
 const can = k => !!(S.snap && S.snap.permissions && S.snap.permissions.indexOf(k) >= 0);
 const pending = () => S.queue.length;
+const failed = () => S.failed.length;
 function avail(sku) { const p = prod(sku); if (!p || isSvc(p)) return null; let q = p.stock || 0; S.queue.forEach(e => { if (e.type === 'SALE') e.items.forEach(i => { if (i.sku === sku) q -= i.qty; }); else if (e.type === 'STOCK_IN') e.items.forEach(i => { if (i.sku === sku) q += i.qty; }); }); return q; }
 function custBalance(c) { let b = c.balance; S.queue.forEach(e => { if (e.partyId !== c.id) return; if (e.type === 'SALE') b += e._total - (e.amountPaid ?? e._total); else if (e.type === 'PAYMENT_IN') b -= e.amount; }); return b; }
 function totalsFor(from) { const t = S.snap ? S.snap.totals : null; const o = {invoices: 0, qty: 0, revenue: 0, expenses: 0};
@@ -164,10 +188,32 @@ function totalsFor(from) { const t = S.snap ? S.snap.totals : null; const o = {i
   S.queue.forEach(e => { if (e.date < f) return; if (e.type === 'SALE') { o.invoices++; o.qty += e._qty; o.revenue += e._total; } else if (e.type === 'EXPENSE') o.expenses += e.amount; }); return o; }
 function nextDocNo() { const d = todayStr(), c = LSget('docseq', {d: '', n: 0}); const n = c.d === d ? c.n + 1 : 1; LSset('docseq', {d, n});
   const pre = (S.auth.user.username.replace(/[^A-Za-z0-9]/g, '').slice(0, 4) || 'REP').toUpperCase(); return `${pre}-${d.slice(2, 4)}${d.slice(5, 7)}${d.slice(8, 10)}-${pad(n, 3)}`; }
-function enqueue(entry) { entry.clientId = uid(); entry.date = todayStr(); entry.at = new Date().toISOString(); entry._user = S.auth.user.username; S.queue.push(entry); persist(); setTimeout(() => { if (navigator.onLine) sync(false); }, 300); return entry; }
+function enqueue(entry) {
+  entry.clientId = uid(); entry.date = todayStr(); entry.at = new Date().toISOString(); entry._user = S.auth.user.username;
+  S.queue.push(entry);
+  // Do not call an action saved until it has reached durable browser storage.
+  // Restore the in-memory queue if storage failed, so it cannot look saved when
+  // it would disappear on reload.
+  if (!persist()) { S.queue = S.queue.filter(e => e !== entry); toast('This action was not saved. Free browser storage or use another device before trying again.', true); return null; }
+  setTimeout(() => { if (navigator.onLine) sync(false); }, 300);
+  return entry;
+}
+function retryFailed(ids) {
+  const wanted = new Set((Array.isArray(ids) ? ids : [ids]).filter(Boolean));
+  const selected = S.failed.filter(x => x.entry && wanted.has(x.entry.clientId));
+  if (!selected.length) return;
+  // Put retrying actions before newer entries, preserving their original order.
+  selected.sort((a, b) => String(a.entry.at || '').localeCompare(String(b.entry.at || '')));
+  S.failed = S.failed.filter(x => !x.entry || !wanted.has(x.entry.clientId));
+  S.queue = selected.map(x => Object.assign({}, x.entry)).concat(S.queue);
+  S.syncIssue = null; persist();
+  toast(selected.length === 1 ? 'Moved the failed action back to Pending sync.' : selected.length + ' failed actions moved back to Pending sync.');
+  softRefresh();
+  if (navigator.onLine) sync(false);
+}
 
 /* ---------- screens ---------- */
-const tabs = () => [['home', 'Home'], ['sale', 'New sale'], ['pay', 'Customer payment'], ['exp', 'Expense']].concat(can('STOCK_IN') ? [['stockin', 'Receive stock']] : [], can('ADD_PRODUCT') ? [['newp', 'Add item / service']] : [], [['stock', 'Stock & prices'], ['cust', 'Customers'], ['hist', 'My entries'], ['set', 'Settings']]);
+const tabs = () => [['home', 'Home'], ['sale', 'New sale'], ['pay', 'Customer payment'], ['exp', 'Expense']].concat(can('STOCK_IN') ? [['stockin', 'Receive stock']] : [], can('ADD_PRODUCT') ? [['newp', 'Add item / service']] : [], [['stock', 'Stock & prices'], ['cust', 'Customers'], ['sync', 'Sync centre'], ['hist', 'My entries'], ['set', 'Settings']]);
 function render() {
   const app = $('#app');
   if (!S.auth) return loginScreen(app);
@@ -178,20 +224,21 @@ function render() {
 }
 function renderNav() {
   const nav = $('#nav'); if (!nav) return;
-  nav.innerHTML = tabs().map(t => `<button data-s="${t[0]}" class="${t[0] === S.screen ? 'on' : ''}">${t[1]}${t[0] === 'hist' && pending() ? ` (${pending()})` : ''}</button>`).join('');
+  const waiting = pending() + failed();
+  nav.innerHTML = tabs().map(t => `<button data-s="${t[0]}" class="${t[0] === S.screen ? 'on' : ''}">${t[1]}${t[0] === 'sync' && waiting ? ` (${waiting})` : ''}</button>`).join('');
   nav.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { S.screen = b.dataset.s; renderNav(); drawBody(); });
 }
 function renderBanners() {
-  const el = $('#banners'); if (!el) return; const rej = S.hist.filter(h => h.status === 'REJECTED' && !h.seen).length;
+  const el = $('#banners'); if (!el) return; const rej = Math.max(failed(), S.hist.filter(h => h.status === 'REJECTED' && !h.seen).length);
   let top = '';
   if (S.needLogin) top += `<div class="banner r">Your login has expired. Your entries are safe on this PC. <button class="sm" id="relog">Sign in again</button></div>`;
-  if (rej) top += `<div class="banner r">${rej} entr${rej > 1 ? 'ies were' : 'y was'} rejected by the office. Show them to your manager (see “My entries”).</div>`;
+  if (rej) top += `<div class="banner r">${rej} entr${rej > 1 ? 'ies need' : 'y needs'} attention. Open Sync centre to see the reason and retry only after it is corrected.</div>`;
   el.innerHTML = top;
   const rl = $('#relog'); if (rl) rl.onclick = () => { S.auth = Object.assign({}, S.auth, {token: null}); loginScreen($('#app'), true); };
 }
 function drawBody() {
   const body = $('#body'); if (!body) return;
-  ({home, sale: saleScreen, pay: payScreen, exp: expScreen, stockin: stockInScreen, newp: newProductScreen, stock: stockScreen, cust: custScreen, hist: histScreen, set: setScreen})[S.screen](body);
+  ({home, sale: saleScreen, pay: payScreen, exp: expScreen, stockin: stockInScreen, newp: newProductScreen, stock: stockScreen, cust: custScreen, sync: syncScreen, hist: histScreen, set: setScreen})[S.screen](body);
 }
 // After a background sync: update the badge, banners and only the screens that have nothing being typed into them.
 // A form you are filling in (sale, payment, expense, receiving stock, new item) is never redrawn, so nothing you typed is lost.
@@ -199,7 +246,7 @@ function softRefresh() {
   if (!S.auth || (S.lock && !S.unlocked) || !$('#body')) { render(); return; }
   renderStatus(); renderBanners(); renderNav();
   const co = $('.co'); if (co && S.snap) co.textContent = S.snap.company + (S.snap.locationName && S.snap.locationName !== 'Main shop' ? ' · ' + S.snap.locationName : '');
-  if (['home', 'hist', 'stock', 'cust'].indexOf(S.screen) < 0) return;
+  if (['home', 'sync', 'hist', 'stock', 'cust'].indexOf(S.screen) < 0) return;
   const q = $('#q'), keep = q ? {v: q.value, focus: document.activeElement === q, pos: q.selectionStart} : null;
   drawBody();
   if (keep && $('#q')) { const nq = $('#q'); nq.value = keep.v; nq.dispatchEvent(new Event('input')); if (keep.focus) { nq.focus(); try { nq.setSelectionRange(keep.pos, keep.pos); } catch (e) {} } }
@@ -212,7 +259,7 @@ function bindDraft(screen, ids) {
 }
 function clearDraft(screen) { delete DRAFT[screen]; LSset('drafts', DRAFT); }
 function renderStatus() {
-  const st = $('#st'); if (!st) return; const on = navigator.onLine, rejected = S.hist.some(h => h.status === 'REJECTED' && !h.seen);
+  const st = $('#st'); if (!st) return; const on = navigator.onLine, rejected = failed() || S.hist.some(h => h.status === 'REJECTED' && !h.seen);
   st.className = 'pill ' + (S.syncing || pending() || rejected ? 'warn' : on ? 'on' : '');
   st.textContent = S.syncing ? 'Syncing…' : rejected ? 'Needs attention' : pending() ? `${pending()} Pending sync${on ? '' : ' · offline'}` : on ? 'Saved' : 'Saved · offline';
 }
@@ -235,9 +282,17 @@ function loginScreen(app, relogin) {
 }
 // Entries other people left waiting on this PC stay theirs: they are kept under their own name and are sent when they sign in.
 function waitingFromOthers(me) {
-  let lines = [];
-  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i), m = /^cb_u_(.+)_queue$/.exec(k || ''); if (!m || m[1] === me.toLowerCase().replace(/[^a-z0-9._-]/g, '')) continue; const q = JSON.parse(localStorage.getItem(k) || '[]'); if (q.length) lines.push(q.length + ' from ' + m[1]); } } catch (e) {}
-  return lines.length ? 'Still waiting on this PC: ' + lines.join(', ') + '. They are kept private and are sent when that person signs in.' : '';
+  const mine = me.toLowerCase().replace(/[^a-z0-9._-]/g, ''), waiting = [], attention = [];
+  try { for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i), m = /^cb_u_(.+)_(queue|failed)$/.exec(k || '');
+    if (!m || m[1] === mine) continue;
+    const entries = JSON.parse(localStorage.getItem(k) || '[]');
+    if (entries.length) (m[2] === 'failed' ? attention : waiting).push(entries.length + ' from ' + m[1]);
+  } } catch (e) {}
+  const notes = [];
+  if (waiting.length) notes.push('Still waiting on this PC: ' + waiting.join(', ') + '.');
+  if (attention.length) notes.push('Needs attention in Sync centre: ' + attention.join(', ') + '.');
+  return notes.length ? notes.join(' ') + ' They are kept private and can be handled only when that person signs in.' : '';
 }
 function unlockScreen(app) {
   app.innerHTML = `<div class="center"><form class="card" id="uf"><h1>Welcome back, ${esc(S.auth.user.fullName || S.auth.user.username)}</h1><p class="muted">Enter your PIN. Works offline.</p>
@@ -261,6 +316,7 @@ function home(m) {
 
 let CART = [], SF = {cust: 'walk', payMode: 'FULL', paid: '', method: 'Cash', notes: '', nn: '', np: ''};
 const linePrice = c => { const p = prod(c.sku) || {price: 0}; return p.editable && c.price !== undefined && c.price !== '' ? +c.price || 0 : p.price; };
+const salePriceReady = c => { const p = prod(c.sku); return !!p && +linePrice(c) > 0; };
 function cartTotal() { return CART.reduce((s, c) => s + Math.round((c.qty * linePrice(c)) * 100) / 100, 0); }
 function saleScreen(m) {
   if (!S.snap) { m.innerHTML = '<div class="card">No price list yet. Connect to the internet once and tap Sync now.</div>'; return; }
@@ -268,8 +324,15 @@ function saleScreen(m) {
   <div id="newc" class="row" style="display:none"><div><label>Name</label><input id="nn"></div><div><label>Phone</label><input id="np" inputmode="tel"></div></div></div>
   <div style="margin-top:1rem"><label>Find a product (name, code, or scan)</label><input id="ps" autocomplete="off" placeholder="Type or scan…"><div id="hits"></div></div></div>
   <div class="card"><div id="cart"></div><div class="row" style="margin-top:1rem"><div><label>Payment</label><select id="paymode"><option value="FULL">Paid in full</option><option value="PART">Part payment</option><option value="LATER">Pay later</option></select></div><div><label>Amount received / tendered now</label><input id="paid" type="number" step="any" min="0"><div class="hint" id="paidhelp"></div></div><div><label>Payment method</label><select id="method">${S.snap.paymentMethods.map(x => `<option>${esc(x)}</option>`).join('')}</select></div><div><label>Note (optional)</label><input id="notes"></div></div>
-  <div class="row" style="margin-top:1rem"><div><div class="total" id="tot"></div><div class="hint" id="paysummary"></div></div><div class="fit"><button class="ghost" id="clr">Clear</button></div><div class="fit"><button id="save">Save sale</button></div></div></div>`;
+  <div class="row" style="margin-top:1rem"><div><div class="total" id="tot"></div><div class="hint" id="paysummary"></div><div class="hint neg" id="price-alert" role="status"></div></div><div class="fit"><button class="ghost" id="clr">Clear</button></div><div class="fit"><button id="save">Save sale</button></div></div></div>`;
   $('#cust').value = SF.cust; $('#paymode').value = SF.payMode || 'FULL'; $('#paid').value = SF.paid; $('#method').value = SF.method; $('#notes').value = SF.notes; $('#nn').value = SF.nn; $('#np').value = SF.np;
+  const setSaleSaveState = () => {
+    const save = $('#save'), alert = $('#price-alert'); if (!save) return;
+    const zeroPrice = CART.find(c => !salePriceReady(c));
+    save.disabled = !!zeroPrice;
+    save.title = zeroPrice ? 'Set every selling price above zero before saving.' : '';
+    if (alert) alert.textContent = zeroPrice ? 'Set the selling price above zero for ' + ((prod(zeroPrice.sku) || {}).name || 'every selected product') + ' before saving.' : '';
+  };
   const sync_ = () => {
     SF = {cust: $('#cust').value, payMode: $('#paymode').value, paid: $('#paid').value, method: $('#method').value, notes: $('#notes').value, nn: $('#nn').value, np: $('#np').value};
     const named = SF.cust !== 'walk', modeEl = $('#paymode'); [...modeEl.options].forEach(o => { if (o.value !== 'FULL') o.disabled = !named; });
@@ -280,27 +343,31 @@ function saleScreen(m) {
     else { paidEl.disabled = false; $('#paidhelp').textContent = SF.payMode === 'PART' ? 'Enter what was received now. The rest becomes this customer’s balance.' : named ? 'Leave blank for the full amount. Cash tendered above the total shows change due.' : 'Walk-in sales must be paid in full. Choose a customer for a part payment or pay later.'; }
     const raw = SF.paid === '' ? (SF.payMode === 'LATER' ? 0 : t) : +SF.paid, tender = Number.isFinite(raw) && raw >= 0 ? raw : 0, kept = Math.min(tender, t), balance = Math.max(0, t - kept), change = Math.max(0, tender - t);
     $('#tot').textContent = money(t); $('#paysummary').innerHTML = `Received now <b>${money(kept)}</b>${balance ? ` · Balance <b class="neg">${money(balance)}</b>` : ''}${change ? ` · Change due <b>${money(change)}</b>` : ''}`;
+    setSaleSaveState();
   };
   ['paid', 'notes', 'nn', 'np'].forEach(id => $('#' + id).addEventListener('input', sync_));
   ['cust', 'paymode', 'method'].forEach(id => $('#' + id).addEventListener('change', sync_));
-  const drawCart = () => { $('#cart').innerHTML = CART.length ? `<div class="scroll"><table><thead><tr><th>Product</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Total</th><th></th></tr></thead><tbody>${CART.map((c, i) => { const p = prod(c.sku), a = avail(c.sku);
+  const drawCart = () => { $('#cart').innerHTML = CART.length ? `<div class="scroll"><table class="sale-lines"><thead><tr><th>Product</th><th class="num">Qty</th><th class="num">Unit cost</th><th class="num">Selling price</th><th class="num">Available</th><th class="num">Total</th><th></th></tr></thead><tbody>${CART.map((c, i) => { const p = prod(c.sku), a = avail(c.sku);
       const hint = !costReady(p) ? '<div class="hint neg">Purchase cost needs a manager update before this can be sold.</div>' : isSvc(p) ? `<div class="hint">service${p.editable ? ' · enter the price you quote' : ''}</div>` : `<div class="hint ${a < c.qty ? 'neg' : ''}">${qty(a)} available${a < c.qty ? ' — not enough on record — ' + ((S.snap && S.snap.oversellPolicy) === 'FLAG' ? 'will be flagged' : 'cannot be sold until stock is recorded') : ''}</div>`;
-      return `<tr><td>${esc(p.name)}${hint}</td><td class="num"><input type="number" step="any" min="0" value="${c.qty}" data-q="${i}" style="width:90px;text-align:right"></td><td class="num">${p.editable ? `<input type="number" step="any" min="0" value="${c.price === undefined ? p.price : c.price}" data-p="${i}" style="width:110px;text-align:right">` : money(p.price)}</td><td class="num" data-lt="${i}">${money(c.qty * linePrice(c))}</td><td><button class="ghost sm" data-rm="${i}">✕</button></td></tr>`; }).join('')}</tbody></table></div>` : '<p class="muted">No items yet. Search above and tap a product to add it.</p>';
+      const shownCost = +p.cost > 0 ? money(p.cost) : '<span class="muted">not set</span>', shownAvailable = isSvc(p) ? '—' : `${qty(a)} ${esc(p.unit)}`;
+      return `<tr><td>${esc(p.name)}${hint}</td><td class="num"><input type="number" step="any" min="0" value="${c.qty}" data-q="${i}" style="width:90px;text-align:right"></td><td class="num">${shownCost}</td><td class="num">${p.editable ? `<input type="number" step="any" min="0.0001" value="${c.price === undefined ? p.price : c.price}" data-p="${i}" style="width:110px;text-align:right">` : money(p.price)}</td><td class="num ${!isSvc(p) && a < c.qty ? 'neg' : ''}">${shownAvailable}</td><td class="num" data-lt="${i}">${money(c.qty * linePrice(c))}</td><td><button class="ghost sm" data-rm="${i}">✕</button></td></tr>`; }).join('')}</tbody></table></div>` : '<p class="muted">No items yet. Search above and tap a product to add it.</p>';
     const upd = k => { const c = CART[k]; sync_(); const cell = $('#cart [data-lt="' + k + '"]'); if (cell) cell.textContent = money(c.qty * linePrice(c)); };
     $('#cart').querySelectorAll('[data-q]').forEach(i => i.oninput = () => { CART[+i.dataset.q].qty = +i.value; upd(+i.dataset.q); });
     $('#cart').querySelectorAll('[data-p]').forEach(i => i.oninput = () => { CART[+i.dataset.p].price = i.value; upd(+i.dataset.p); });
     $('#cart').querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { CART.splice(+b.dataset.rm, 1); drawCart(); sync_(); }); sync_(); };
-  const add = sku => { const p = prod(sku); if (!costReady(p)) return toast((p ? p.name : 'This product') + ' cannot be sold yet. Contact the business owner or manager to update its purchase cost first.', true); const ex = CART.find(c => c.sku === sku); if (ex) ex.qty++; else CART.push({sku, qty: 1}); $('#ps').value = ''; $('#hits').innerHTML = ''; drawCart(); $('#ps').focus(); };
+  const add = sku => { const p = prod(sku); if (!costReady(p)) return toast((p ? p.name : 'This product') + ' cannot be sold yet. Contact the business owner or manager to update its purchase cost first.', true); if (!p.editable && !(+p.price > 0)) return toast(p.name + ' has no selling price. Ask the business owner or manager to set one before selling it.', true); const ex = CART.find(c => c.sku === sku); if (ex) ex.qty++; else CART.push({sku, qty: 1}); $('#ps').value = ''; $('#hits').innerHTML = ''; drawCart(); $('#ps').focus(); };
   $('#ps').oninput = e => { const t = e.target.value.trim().toLowerCase(); if (!t) { $('#hits').innerHTML = ''; return; }
     const r = allProducts().filter(p => (p.sku + ' ' + p.name + ' ' + p.category).toLowerCase().includes(t)).slice(0, 8);
-    $('#hits').innerHTML = r.map(p => `<button class="hit" data-a="${esc(p.sku)}" ${!costReady(p) ? 'disabled' : ''}><span>${esc(p.name)} <span class="hint">${esc(p.sku)}</span></span><span class="${!costReady(p) ? 'neg' : ''}">${!costReady(p) ? 'cost needs manager update' : isSvc(p) ? (p.editable ? 'quote per job' : money(p.price)) + ' · service' : money(p.price) + ' · ' + qty(avail(p.sku)) + ' left'}</span></button>`).join('') || '<p class="muted">No match.</p>';
+    $('#hits').innerHTML = r.map(p => { const blocked = !costReady(p) || (!p.editable && !(+p.price > 0)), shownCost = +p.cost > 0 ? money(p.cost) : 'not set', shownPrice = p.editable ? (+p.price > 0 ? 'quote per job' : 'enter above zero') : money(p.price), shownAvailable = isSvc(p) ? '— service' : qty(avail(p.sku)) + ' ' + esc(p.unit);
+      const note = !costReady(p) ? 'cost needs manager update' : (!p.editable && !(+p.price > 0) ? 'selling price needs update' : `Cost: ${shownCost} · Selling price: ${shownPrice} · Available: ${shownAvailable}`);
+      return `<button class="hit" data-a="${esc(p.sku)}" ${blocked ? 'disabled' : ''}><span>${esc(p.name)} <span class="hint">${esc(p.sku)}</span></span><span class="${blocked ? 'neg' : ''}">${note}</span></button>`; }).join('') || '<p class="muted">No match.</p>';
     $('#hits').querySelectorAll('[data-a]').forEach(b => b.onclick = () => add(b.dataset.a)); };
   $('#ps').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); const t = e.target.value.trim().toLowerCase(), ex = allProducts().find(p => p.sku.toLowerCase() === t), first = $('#hits [data-a]'); if (ex) add(ex.sku); else if (first) add(first.dataset.a); } };
   $('#clr').onclick = () => { CART = []; SF = {cust: 'walk', payMode: 'FULL', paid: '', method: 'Cash', notes: '', nn: '', np: ''}; render(); };
   $('#save').onclick = () => {
     sync_(); if (!CART.length) return toast('Add at least one product or service.', true);
     if (CART.some(c => !costReady(prod(c.sku)))) return toast('A product in this sale has no approved purchase cost. Contact the business owner or manager to update it first.', true);
-    if (CART.some(c => prod(c.sku).editable && !(linePrice(c) > 0))) return toast('Enter the price you are charging for the service.', true); if (CART.some(c => !(c.qty > 0))) return toast('Every quantity must be more than zero.', true);
+    if (CART.some(c => !salePriceReady(c))) return toast('Set every selling price above zero before saving.', true); if (CART.some(c => !(c.qty > 0))) return toast('Every quantity must be more than zero.', true);
     const total = cartTotal(), rawPaid = SF.paid === '' ? (SF.payMode === 'LATER' ? 0 : total) : +SF.paid;
     if (!(rawPaid >= 0)) return toast('Enter a valid amount received.', true);
     const paid = Math.min(rawPaid, total), change = Math.max(0, rawPaid - total);
@@ -319,7 +386,8 @@ function saleScreen(m) {
     const e = {type: 'SALE', docNo: nextDocNo(), items: CART.map(x => ({sku: x.sku, qty: x.qty, price: linePrice(x)})), amountPaid: paid, amountTendered: rawPaid, changeDue: change, method: SF.method, notes: SF.notes,
       _label: SF.cust === 'walk' ? 'Walk-in' : SF.cust === 'new' ? SF.nn.trim() : c.name, _total: total, _qty: CART.reduce((s, x) => s + x.qty, 0)};
     if (SF.cust === 'new') e.newParty = {name: SF.nn.trim(), phone: SF.np.trim()}; else if (SF.cust !== 'walk') e.partyId = SF.cust;
-    enqueue(e); const snapshotCart = CART.map(x => Object.assign({}, x)); CART = []; SF = {cust: 'walk', payMode: 'FULL', paid: '', method: 'Cash', notes: '', nn: '', np: ''}; receipt(e, snapshotCart); render();
+    if (!enqueue(e)) return;
+    const snapshotCart = CART.map(x => Object.assign({}, x)); CART = []; SF = {cust: 'walk', payMode: 'FULL', paid: '', method: 'Cash', notes: '', nn: '', np: ''}; receipt(e, snapshotCart); render();
   };
   drawCart();
 }
@@ -342,14 +410,15 @@ function payScreen(m) {
   bindDraft('pay', ['pc', 'pa', 'pm', 'pn']);
   $('#ps').onclick = () => { const id = $('#pc').value, a = +$('#pa').value; if (!id) return toast('Choose a customer.', true); if (!(a > 0)) return toast('Enter the amount received.', true);
     const c = S.snap.customers.find(x => x.id === id); if (a > custBalance(c) + 0.005 && !confirm('That is more than the customer owes (' + money(custBalance(c)) + '). Save anyway?')) return;
-    enqueue({type: 'PAYMENT_IN', partyId: id, amount: a, method: $('#pm').value, notes: $('#pn').value, _label: c.name, _total: a}); toast('Payment saved'); clearDraft('pay'); render(); };
+    if (!enqueue({type: 'PAYMENT_IN', partyId: id, amount: a, method: $('#pm').value, notes: $('#pn').value, _label: c.name, _total: a})) return;
+    toast('Payment saved'); clearDraft('pay'); render(); };
 }
 function expScreen(m) {
   const cats = S.snap ? S.snap.expenseCategories : ['Transport', 'Fuel', 'Other'];
   m.innerHTML = `<h2>Record an expense</h2><div class="card"><div class="row"><div><label>Category</label><select id="ec">${cats.map(c => `<option>${esc(c)}</option>`).join('')}</select></div><div><label>Amount</label><input id="ea" type="number" step="any" min="0"></div>
   <div><label>Method</label><select id="em">${(S.snap ? S.snap.paymentMethods : ['Cash']).map(x => `<option>${esc(x)}</option>`).join('')}</select></div></div><div style="margin:.8rem 0"><label>What was it for?</label><input id="en"></div><button id="es">Save expense</button></div>`;
   bindDraft('exp', ['ec', 'ea', 'em', 'en']);
-  $('#es').onclick = () => { const a = +$('#ea').value; if (!(a > 0)) return toast('Enter the amount.', true); enqueue({type: 'EXPENSE', category: $('#ec').value, amount: a, method: $('#em').value, notes: $('#en').value, _label: $('#ec').value, _total: a}); toast('Expense saved'); clearDraft('exp'); render(); };
+  $('#es').onclick = () => { const a = +$('#ea').value; if (!(a > 0)) return toast('Enter the amount.', true); if (!enqueue({type: 'EXPENSE', category: $('#ec').value, amount: a, method: $('#em').value, notes: $('#en').value, _label: $('#ec').value, _total: a})) return; toast('Expense saved'); clearDraft('exp'); render(); };
 }
 let SI = [], SIF = {sup: '', nn: '', paid: '', method: 'Cash', notes: ''};
 function stockInScreen(m) {
@@ -391,7 +460,8 @@ function stockInScreen(m) {
     const sup = (S.snap.suppliers || []).find(x => x.id === SIF.sup);
     const e = {type: 'STOCK_IN', items: SI.map(c => ({sku: c.sku, qty: c.qty, unitCost: +c.cost})), amountPaid: paid, method: SIF.method, notes: SIF.notes, _label: !hasSup ? 'Cash purchase' : SIF.sup === 'new' ? SIF.nn.trim() : sup.name, _total: t, _qty: SI.reduce((x, c) => x + c.qty, 0)};
     if (SIF.sup === 'new') e.newParty = {name: SIF.nn.trim()}; else if (hasSup) e.partyId = SIF.sup;
-    enqueue(e); SI = []; SIF = {sup: '', nn: '', paid: '', method: 'Cash', notes: ''}; toast('Stock saved. Waiting to sync.'); render();
+    if (!enqueue(e)) return;
+    SI = []; SIF = {sup: '', nn: '', paid: '', method: 'Cash', notes: ''}; toast('Stock saved. Waiting to sync.'); render();
   };
   draw();
 }
@@ -414,9 +484,9 @@ function newProductScreen(m) {
     const pre = (S.auth.user.username.replace(/[^A-Za-z0-9]/g, '').slice(0, 4) || 'REP').toUpperCase(), kind = $('#np-kind').value;
     // One queued entry is enough: its clientId makes an offline retry safe,
     // and keeps the new item ahead of a following stock receipt in the queue.
-    enqueue({type: 'ADD_PRODUCT', sku: `NEW-${pre}-${pad(c, 3)}`, name, category: cat, unit: $('#np-unit').value.trim(), price,
+    if (!enqueue({type: 'ADD_PRODUCT', sku: `NEW-${pre}-${pad(c, 3)}`, name, category: cat, unit: $('#np-unit').value.trim(), price,
       reorder: kind === 'ITEM' ? +$('#np-re').value : 0, kind, priceEditable: kind === 'SERVICE' && $('#np-pe').checked,
-      _label: name, _total: price});
+      _label: name, _total: price})) return;
     clearDraft('newp'); toast('Saved. You can use it now.'); S.screen = kind === 'SERVICE' ? 'sale' : 'stockin'; if (!can('STOCK_IN') && kind === 'ITEM') S.screen = 'stock'; renderNav(); drawBody();
   };
 }
@@ -433,6 +503,23 @@ function custScreen(m) {
     $('#t').innerHTML = `<table><thead><tr><th>Customer</th><th class="num">Owes</th></tr></thead><tbody>${r.map(c => `<tr><td>${esc(c.name)}<div class="hint">${esc(c.phone)}</div></td><td class="num ${custBalance(c) > 0 ? 'neg' : ''}">${money(custBalance(c))}</td></tr>`).join('') || '<tr><td colspan="2" class="muted">Nobody yet.</td></tr>'}</tbody></table>`; };
   $('#q').oninput = draw; draw();
 }
+function syncScreen(m) {
+  const labels = {SALE: 'Sale', EXPENSE: 'Expense', PAYMENT_IN: 'Customer payment', STOCK_IN: 'Stock received', ADD_PRODUCT: 'New item'};
+  const action = e => labels[e.type] || e.type;
+  const last = S.lastSync ? new Date(S.lastSync).toLocaleString() : 'Not yet synced';
+  const issue = S.syncIssue;
+  const issueText = !issue ? '' : issue.kind === 'AUTH'
+    ? '<div class="banner r">Sign in again before this device can sync. Your pending actions are still stored here.</div>'
+    : `<div class="banner">Last connection attempt: ${esc(issue.message)}<br><span class="hint">Your pending actions remain saved on this device and will be tried again when you tap Sync now or reconnect.</span></div>`;
+  const pendingRows = S.queue.slice().reverse().map(e => `<tr><td>${esc(e.date)}</td><td><b>${esc(action(e))}</b>${e.docNo ? ' ' + esc(e.docNo) : ''}<div class="hint">${esc(e._label || '')}</div></td><td class="num">${money(e._total)}</td><td><span class="tag">Pending sync</span></td></tr>`).join('');
+  const failedRows = S.failed.map(f => { const e = f.entry || {}; return `<tr><td>${esc(e.date || '')}</td><td><b>${esc(action(e))}</b>${e.docNo ? ' ' + esc(e.docNo) : ''}<div class="hint">${esc(e._label || '')}</div></td><td class="num">${money(e._total)}</td><td><div class="neg">${esc(f.message || 'The server rejected this action.')}</div><div class="hint">Attempt ${Math.max(1, +f.attempts || 0)} · ${f.at ? esc(new Date(f.at).toLocaleString()) : ''}</div></td><td class="num"><button class="ghost sm" data-retry="${esc(e.clientId || '')}" ${S.syncing ? 'disabled' : ''}>Retry</button></td></tr>`; }).join('');
+  m.innerHTML = `<h2>Sync centre</h2><div class="card"><div class="row"><div><h3>${S.syncing ? 'Syncing…' : failed() ? 'Needs attention' : pending() ? 'Pending sync' : 'Saved'}</h3><p class="hint">Last server sync: ${esc(last)}.</p></div><div class="fit"><button id="sc-sync" ${S.syncing ? 'disabled' : ''}>${S.syncing ? 'Syncing…' : 'Sync now'}</button></div>${failed() ? '<div class="fit"><button class="ghost" id="sc-retry-all" ' + (S.syncing ? 'disabled' : '') + '>Retry all failed</button></div>' : ''}</div>${issueText}<p class="hint">Each sale, payment, expense, stock receipt and new product is first saved on this device. The app then sends it quietly in the background when it can.</p></div>
+  <div class="card"><h3>Waiting to sync (${pending()})</h3>${pending() ? `<div class="scroll"><table><thead><tr><th>Date</th><th>Action</th><th class="num">Amount</th><th>Status</th></tr></thead><tbody>${pendingRows}</tbody></table></div>` : '<p class="pos">Nothing is waiting. This device is up to date.</p>'}</div>
+  <div class="card"><h3>Failed actions (${failed()})</h3>${failed() ? `<p class="hint">These were rejected by the server, so they are not retried automatically. Correct the problem first, then retry the original action with the same safe reference.</p><div class="scroll"><table><thead><tr><th>Date</th><th>Action</th><th class="num">Amount</th><th>Reason</th><th></th></tr></thead><tbody>${failedRows}</tbody></table></div>` : '<p class="muted">No server-rejected actions on this device.</p>'}</div>`;
+  const now = m.querySelector('#sc-sync'); if (now) now.onclick = () => sync(true);
+  const retryAll = m.querySelector('#sc-retry-all'); if (retryAll) retryAll.onclick = () => retryFailed(S.failed.map(f => f.entry && f.entry.clientId));
+  m.querySelectorAll('[data-retry]').forEach(b => b.onclick = () => retryFailed(b.dataset.retry));
+}
 function histScreen(m) {
   const lab = {SALE: 'Sale', EXPENSE: 'Expense', PAYMENT_IN: 'Payment', STOCK_IN: 'Stock received', ADD_PRODUCT: 'New item'};
   S.hist.forEach(h => { if (h.status === 'REJECTED') h.seen = true; }); LSset('hist', S.hist);
@@ -441,20 +528,25 @@ function histScreen(m) {
   m.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { if (confirm('Cancel this entry?')) { S.queue = S.queue.filter(e => e.clientId !== b.dataset.c); persist(); render(); } });
 }
 function setScreen(m) {
+  const unresolved = pending() + failed();
+  const signOutNote = failed()
+    ? '<b class="neg">' + failed() + ' action' + (failed() === 1 ? ' needs' : 's need') + ' attention in Sync centre.</b>' + (pending() ? ' ' + pending() + ' entr' + (pending() === 1 ? 'y is' : 'ies are') + ' still waiting to sync.' : '')
+    : pending() ? '<b class="neg">' + pending() + ' entries are still waiting to sync.</b> Connect to the internet and tap Sync now first.'
+      : 'Everything is synced.';
   m.innerHTML = `<h2>Settings</h2><div class="card"><h3>Server link</h3><input id="api" value="${esc(S.api)}"><p style="margin-top:.6rem"><button class="ghost" id="sa">Save link</button></p></div>
   <div class="card"><h3>Change my PIN</h3><p class="hint">Needs internet.</p><div class="row"><div><label>Current PIN</label><input id="p0" type="password" inputmode="numeric"></div><div><label>New PIN (4+ digits)</label><input id="p1" type="password" inputmode="numeric"></div><div class="fit"><button id="cp">Change PIN</button></div></div></div>
-  <div class="card"><h3>Safety copy</h3><p class="hint">Downloads everything waiting to sync, in case this PC has a problem. Give the file to your manager.</p><button class="ghost" id="bk">Download backup file</button></div>
-  <div class="card"><h3>Sign out</h3><p class="hint">${pending() ? '<b class="neg">' + pending() + ' entries are still waiting to sync.</b> Connect to the internet and tap Sync now first.' : 'Everything is synced.'}</p><button class="danger" id="lo">Sign out</button></div>
+  <div class="card"><h3>Safety copy</h3><p class="hint">Downloads all waiting and failed actions, plus recent sync history, in case this PC has a problem. Give the file to your manager.</p><button class="ghost" id="bk">Download backup file</button></div>
+  <div class="card"><h3>Sign out</h3><p class="hint">${signOutNote}</p><button class="danger" id="lo">Sign out</button></div>
   <p class="hint">Cashbook rep app · ${esc(S.auth.user.username)} · device date ${todayStr()} (check it is correct)</p>`;
   $('#sa').onclick = () => { S.api = $('#api').value.trim(); LSset('api', S.api); toast('Saved'); };
-  $('#cp').onclick = async () => { try { await call('changePin', {oldPin: $('#p0').value, newPin: $('#p1').value}); const salt = uid(); S.lock = {salt, hash: await lockHash(salt, $('#p1').value)}; LSset('lock', S.lock); toast('PIN changed'); render(); } catch (e) { toast(e.message, true); } };
-  $('#bk').onclick = () => { const blob = new Blob([JSON.stringify({exportedAt: new Date().toISOString(), user: S.auth.user, queue: S.queue, history: S.hist.slice(0, 100)}, null, 1)], {type: 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'cashbook-backup-' + todayStr() + '.json'; a.click(); };
-  $('#lo').onclick = async () => { if (pending() && !confirm('You still have ' + pending() + ' unsynced entries. Signing out keeps them on this PC, but only YOU can post them. Sign out anyway?')) return;
+  $('#cp').onclick = async () => { const oldPin = $('#p0').value, newPin = $('#p1').value; try { await call('changePin', {oldPin, newPin}); const salt = uid(); S.lock = {salt, hash: await lockHash(salt, newPin)}; LSset('lock', S.lock); toast('PIN changed'); render(); } catch (e) { toast(e.message, true); } };
+  $('#bk').onclick = () => { const blob = new Blob([JSON.stringify({exportedAt: new Date().toISOString(), user: S.auth.user, queue: S.queue, failed: S.failed, syncIssue: S.syncIssue, history: S.hist.slice(0, 100)}, null, 1)], {type: 'application/json'}); const a = document.createElement('a'), url = URL.createObjectURL(blob); a.href = url; a.download = 'cashbook-backup-' + todayStr() + '.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); };
+  $('#lo').onclick = async () => { if (unresolved && !confirm('You still have ' + unresolved + ' action' + (unresolved === 1 ? '' : 's') + ' waiting or needing attention. Signing out keeps them on this PC, but only YOU can post or resolve them. Sign out anyway?')) return;
     try { await call('logout', {}, 8000); } catch (e) {} persist(); S.auth = null; S.lock = null; S.unlocked = false; LSset('auth', null); LSset('lock', null); loadMine(); render(); };
 }
 
 if ('serviceWorker' in navigator && /^https?:/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.addEventListener('beforeunload', e => { if (S.queue.length && S.unlocked) { e.preventDefault(); e.returnValue = ''; } });
+window.addEventListener('beforeunload', e => { if ((S.queue.length || S.failed.length) && S.unlocked) { e.preventDefault(); e.returnValue = ''; } });
 if (S.auth && !S.lock) S.unlocked = true;
 render();
 })();
