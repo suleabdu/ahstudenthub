@@ -1,0 +1,67 @@
+# Cashbook Supabase local-development configuration.
+#
+# This project is intentionally configured as a new backend.  It does not
+# connect to, mutate, or import the existing Google Sheet automatically.
+# Use the product-only staging RPC after exporting and reviewing a CSV/JSON
+# product list from the Sheet.
+project_id = "cashbook"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 17
+
+[db.pooler]
+enabled = true
+port = 54329
+pool_mode = "transaction"
+default_pool_size = 20
+max_client_conn = 100
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+port = 54323
+
+[local_smtp]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+file_size_limit = "10MiB"
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://127.0.0.1:3000", "http://localhost:54321"]
+jwt_expiry = 3600
+enable_signup = false
+
+[auth.email]
+enable_signup = false
+double_confirm_changes = true
+enable_confirmations = true
+
+[analytics]
+enabled = false
+
+[functions.cashbook-api]
+verify_jwt = false
+
+[functions.cashbook-bootstrap]
+verify_jwt = false
+
+# The compatibility function accepts the current JSON envelope. Login has no
+# JWT and the current PWAs send the session token inside that envelope, so the
+# function performs explicit Supabase Auth verification for every non-login
+# action. Keep this setting scoped to this one function; other functions can
+# retain gateway JWT verification.

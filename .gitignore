@@ -1,0 +1,27 @@
+# Keep this repository intentionally small: only the deployable web client and
+# Supabase source are tracked.  Everything else in this working folder remains
+# local, including the legacy Apps Script source, guides, test fixtures and
+# generated artefacts.
+/*
+
+# The ignore policy itself must be versioned.
+!/.gitignore
+
+# Release source.
+!/web-app/
+!/web-app/**
+!/supabase/
+!/supabase/**
+
+# Never publish local secrets, Supabase CLI state, dependencies or build output
+# even when they are located inside an allowed source folder.
+**/.env
+**/.env.*
+**/node_modules/
+**/.supabase/
+**/.temp/
+**/dist/
+**/build/
+**/*.pem
+**/*.key
+**/*service-role*.json
